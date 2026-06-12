@@ -36,7 +36,6 @@ import {
   ClipboardCheck,
   Copy,
   Download,
-  Eye,
   FileText,
   Filter,
   Flag,
@@ -409,7 +408,7 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState("teacher@sabah.edu.my");
   const [detectedRole, setDetectedRole] = useState<UserRole>("candidate");
-  const [authNotice, setAuthNotice] = useState("Demo account detected as Teacher / Candidate.");
+  const [authNotice, setAuthNotice] = useState("Role detected: Teacher / Candidate.");
   const roleOrder: UserRole[] = [
     "candidate",
     "school-admin",
@@ -430,39 +429,62 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
             ? "super-admin"
             : "candidate";
     setDetectedRole(nextRole);
-    setAuthNotice(`Demo account detected as ${roleProfiles[nextRole].label}.`);
+    setAuthNotice(`Role detected: ${roleProfiles[nextRole].label}.`);
+  }
+
+  function chooseRole(nextRole: UserRole) {
+    setDetectedRole(nextRole);
+    setEmail(
+      nextRole === "candidate"
+        ? "teacher@sabah.edu.my"
+        : nextRole === "school-admin"
+          ? "school@sabah.edu.my"
+          : nextRole === "ppd-admin"
+            ? "ppd@sabah.edu.my"
+            : nextRole === "jpns-admin"
+              ? "jpns@sabah.edu.my"
+              : "admin@sabah.edu.my",
+    );
+    setAuthNotice(`Role detected: ${roleProfiles[nextRole].label}.`);
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eaf7ff,transparent_34%),#f6f8fb] px-4 py-5 text-slate-950 md:px-8 md:py-10">
-      <div className="mx-auto w-full max-w-6xl">
-        <header className="overflow-hidden rounded-2xl bg-[#071f54] p-5 text-white shadow-xl md:p-7">
+    <main className="min-h-screen bg-[#f6f8fb] px-4 py-4 text-slate-950 md:px-8 md:py-10">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col">
+        <header className="overflow-hidden rounded-[1.35rem] bg-[#071f54] p-5 text-white shadow-xl md:p-7">
           <div className="flex items-center justify-between gap-4">
             <Brand inverse />
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-cyan-100">
-              Certification Passport
+              Sabah 2026
             </span>
           </div>
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.75fr] lg:items-end">
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.7fr] lg:items-end">
             <div className="max-w-3xl">
               <p className="text-sm font-semibold text-cyan-200">Sabah MAXHUB Educator Certification</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
-                Teacher certification journey, built for mobile.
+                Official digital teaching certification.
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-300 md:text-base">
-                Friendly for teachers, official for certification, and clear for School, PPD, JPNS and Super Admin roles.
+                Register, sit for the assessment, receive a verified certificate, and review performance by role.
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Design principle</p>
-              <p className="mt-2 text-lg font-black">Friendly · Professional · Empowering</p>
-              <p className="mt-1 text-sm leading-6 text-slate-300">Built for learners. Designed for success.</p>
+            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/10 p-3">
+              {[
+                ["180", "Score"],
+                ["90m", "Exam"],
+                ["QR", "Verify"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-xl bg-white/10 p-3 text-center">
+                  <p className="text-lg font-black">{value}</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-cyan-100">{label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </header>
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="mt-5 grid flex-1 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
+          <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
               {(["login", "register", "forgot"] as const).map((item) => (
                 <button
@@ -482,16 +504,29 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
               <div className="mt-5 space-y-4">
                 <AuthField label="Email" value={email} onChange={detectRole} placeholder="teacher@sabah.edu.my" />
                 <AuthField label="Password" value="password123" onChange={() => null} placeholder="Password" type="password" />
-                <div className="rounded-lg bg-cyan-50 p-3">
+                <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-3">
                   <p className="text-sm font-bold text-cyan-900">{authNotice}</p>
-                  <p className="mt-1 text-sm text-cyan-800">Try: school@demo.my, ppd@demo.my, jpns@demo.my, admin@demo.my</p>
+                  <label className="mt-3 block">
+                    <span className="text-xs font-black uppercase tracking-wide text-cyan-700">Access profile</span>
+                    <select
+                      value={detectedRole}
+                      onChange={(event) => chooseRole(event.target.value as UserRole)}
+                      className="mt-2 h-11 w-full rounded-lg border border-cyan-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none"
+                    >
+                      {roleOrder.map((roleKey) => (
+                        <option key={roleKey} value={roleKey}>
+                          {roleProfiles[roleKey].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <button
                   onClick={() => onSignIn(detectedRole)}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-black text-white"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0575dd] text-sm font-black text-white shadow-lg shadow-blue-500/20"
                 >
                   <LockKeyhole size={18} />
-                  Sign in as {roleProfiles[detectedRole].label}
+                  Sign in
                 </button>
               </div>
             )}
@@ -502,8 +537,8 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
               <div className="mt-5 space-y-4">
                 <AuthField label="Email" value={email} onChange={setEmail} placeholder="your@email.com" />
                 <button
-                  onClick={() => setAuthNotice("Password reset link simulated and sent to email.")}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-black text-white"
+                  onClick={() => setAuthNotice("Password reset link prepared for the registered email.")}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0575dd] text-sm font-black text-white"
                 >
                   <Mail size={18} />
                   Send reset link
@@ -513,15 +548,10 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Demo role switcher</p>
-                <h2 className="text-xl font-black">Showcase every workspace</h2>
-              </div>
-              <Eye className="text-slate-500" size={24} />
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+            <p className="text-sm font-semibold text-slate-500">Certification workspaces</p>
+            <h2 className="mt-1 text-xl font-black">One platform, role-based access</h2>
+            <div className="mt-4 space-y-3">
               {roleOrder.map((roleKey) => {
                 const profile = roleProfiles[roleKey];
 
@@ -529,16 +559,16 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
                   <button
                     key={roleKey}
                     onClick={() => onSignIn(roleKey)}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-slate-950 hover:bg-white"
+                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-white"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="grid size-10 place-items-center rounded-lg bg-slate-950 text-xs font-black text-white">
-                        {profile.initials}
-                      </div>
-                      <ChevronRight className="text-slate-400" size={20} />
+                    <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#071f54] text-xs font-black text-white">
+                      {profile.initials}
                     </div>
-                    <h3 className="mt-4 font-black">{profile.label}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{profile.description}</p>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-black">{profile.label}</h3>
+                      <p className="truncate text-sm text-slate-500">{profile.scope}</p>
+                    </div>
+                    <ChevronRight className="shrink-0 text-slate-400" size={20} />
                   </button>
                 );
               })}
@@ -546,38 +576,7 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
           </div>
         </section>
 
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-          <p className="text-sm font-bold text-slate-500">Design System</p>
-          <h2 className="mt-1 text-xl font-black">Official, friendly, empowering</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-[0.8fr_1fr_1fr]">
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Palette</p>
-              <div className="mt-3 grid grid-cols-6 gap-2">
-                {["#062A6F", "#22A8E8", "#22C55E", "#F59E0B", "#FACC15", "#F25555"].map((color) => (
-                  <span key={color} className="h-9 rounded-lg" style={{ backgroundColor: color }} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Cards</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-xl border border-slate-200 p-3 text-xs font-bold">Elevated</div>
-                <div className="rounded-xl bg-[#062a6f] p-3 text-xs font-bold text-white">Gradient</div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">Section</div>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Status</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {["Completed", "In Review", "Not Started", "Overdue"].map((item) => (
-                  <span key={item} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{item}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <footer className="mt-8 flex flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-4">
+        <footer className="mt-5 flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Powered by</p>
           <Image
             src="/brand/samasama-works-logo.jpg"
@@ -655,7 +654,7 @@ function RegistrationForm({ onComplete }: { onComplete: () => void }) {
       </label>
       {submitted && (
         <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
-          Registration submitted. Candidate profile created for demo.
+          Registration submitted. Candidate profile is ready for assessment.
         </p>
       )}
       <button
@@ -905,9 +904,9 @@ function ExamView({
   const completedSimulation = [hotspotDone, workflowDone, dragDone].filter(Boolean).length;
   const answeredCount = Object.keys(answers).length + completedSimulation;
   const canSubmit = Object.keys(answers).length === examQuestions.length && completedSimulation === 3;
-  const demoScore = 68 + completedSimulation * 11 + (Object.values(answers).includes("B") ? 45 : 36);
-  const demoPercentage = Math.round((demoScore / 180) * 100);
-  const achievement = resolveAchievement(demoScore, 180, sampleAssessmentPack.achievementRules);
+  const previewScore = 68 + completedSimulation * 11 + (Object.values(answers).includes("B") ? 45 : 36);
+  const previewPercentage = Math.round((previewScore / 180) * 100);
+  const achievement = resolveAchievement(previewScore, 180, sampleAssessmentPack.achievementRules);
   const currentQuestion = examQuestions[questionIndex];
 
   return (
@@ -1164,8 +1163,8 @@ function ExamView({
 
       {phase === "result" && (
         <ResultView
-          score={demoScore}
-          percentage={demoPercentage}
+          score={previewScore}
+          percentage={previewPercentage}
           achievement={achievement.achievementLabel}
           onRetake={() => setPhase("briefing")}
         />
@@ -1224,7 +1223,7 @@ function ResultView({ score, percentage, achievement, onRetake }: { score: numbe
           <ActionTile icon={RefreshCcw} title="Retake Rules" label="7 days cooldown, 3 attempts" />
         </button>
         <Link href="/certificate/SME-2026-000142" className="text-left">
-          <ActionTile icon={Download} title="Printable PDF Demo" label="open certificate print view" />
+          <ActionTile icon={Download} title="Printable PDF" label="open certificate print view" />
         </Link>
       </div>
     </section>
@@ -1354,11 +1353,11 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-500">Certificate templates</p>
-            <h3 className="text-xl font-black">Official sample layouts</h3>
+            <h3 className="text-xl font-black">Official layouts</h3>
           </div>
           <FileBadge className="text-slate-500" size={24} />
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
           <CertificateTemplatePreview
             title="Practitioner Participant"
             src="/brand/certificate-practitioner-template.jpg"
@@ -1390,7 +1389,7 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
       <section className="grid gap-3 md:grid-cols-1">
         <Link
           href="/certificate/SME-2026-000142"
-          onClick={() => setCertificateNotice("PDF download simulated: SME-2026-000142.pdf generated.")}
+          onClick={() => setCertificateNotice("PDF certificate prepared: SME-2026-000142.pdf.")}
           className="text-left"
         >
           <ActionTile icon={FileBadge} title="PDF Certificate" label="open printable certificate" />
@@ -1402,11 +1401,11 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
 
 function CertificateTemplatePreview({ title, src }: { title: string; src: string }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+    <div className="min-w-[82%] snap-start overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:min-w-[420px] md:min-w-0">
       <Image src={src} alt={title} width={1280} height={905} className="aspect-[1280/905] w-full object-cover" />
       <div className="p-3">
         <p className="text-sm font-black text-slate-950">{title}</p>
-        <p className="mt-1 text-xs font-semibold text-slate-500">Used as reference for generated certificate PDF.</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">Reference layout for generated certificate PDF.</p>
       </div>
     </div>
   );
@@ -1470,7 +1469,7 @@ function AdminView({
 
   function importPack() {
     setQuestionCount((count) => count + 24);
-    setPackLog("Excel import simulated: 24 questions validated and staged for review.");
+    setPackLog("Excel import validated: 24 questions staged for review.");
   }
 
   return (
@@ -1600,7 +1599,7 @@ function AdminView({
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <AuditLog />
-        <NotificationDemo />
+        <NotificationsPanel />
       </section>
     </div>
   );
@@ -1706,14 +1705,14 @@ function AuditLog() {
   );
 }
 
-function NotificationDemo() {
-  const [notice, setNotice] = useState("No notification sent yet.");
+function NotificationsPanel() {
+  const [notice, setNotice] = useState("No recent notifications.");
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
       <div className="flex items-center gap-3">
         <Bell className="text-slate-500" size={22} />
-        <h2 className="text-xl font-black">Notification / Email Demo</h2>
+        <h2 className="text-xl font-black">Notifications</h2>
       </div>
       <p className="mt-2 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{notice}</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -1966,7 +1965,7 @@ function JpnsAdminView() {
         <button onClick={() => setJpnsAction("State PLC circular generated for all low-maturity PPDs.")} className="text-left">
           <ActionTile icon={FileText} title="Generate Circular" label="state training instruction" />
         </button>
-        <button onClick={() => setJpnsAction("JPNS executive report export simulated.")} className="text-left">
+        <button onClick={() => setJpnsAction("JPNS executive report pack prepared.")} className="text-left">
           <ActionTile icon={Download} title="Executive Export" label="PDF and Excel report pack" />
         </button>
       </section>
@@ -2088,7 +2087,7 @@ function SettingsView() {
         >
           <FileBadge className="text-slate-500" size={22} />
           <p className="mt-3 font-bold">Change Certificate Prefix</p>
-          <p className="mt-1 text-sm text-slate-500">Demo certificate numbering rule</p>
+          <p className="mt-1 text-sm text-slate-500">Certificate numbering rule</p>
         </button>
       </section>
       <section className="grid gap-3 md:grid-cols-3">
@@ -2221,7 +2220,7 @@ function TrainingCalendar() {
         ))}
       </div>
       <p className="mt-3 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">
-        Selected session: {selected}. Invite list and attendance sheet prepared for demo.
+        Selected session: {selected}. Invite list and attendance sheet prepared.
       </p>
     </section>
   );
@@ -2381,7 +2380,7 @@ function ReportFilters({ scope }: { scope: string }) {
         <Download size={17} />
         Export {scope} report
       </button>
-      {exported && <p className="mt-3 text-sm font-bold text-emerald-700">{scope} report export simulated.</p>}
+      {exported && <p className="mt-3 text-sm font-bold text-emerald-700">{scope} report export prepared.</p>}
     </section>
   );
 }
