@@ -226,11 +226,14 @@ const districtStats = [
 ];
 
 const simulationSteps = [
-  "Open AI Courseware",
-  "Select Science Form 4",
-  "Generate Smart Quiz",
-  "Assign Hybrid Activity",
+  "Generate with AI",
+  "Enter topic",
+  "Review objectives",
+  "Generate outline",
+  "Generate courseware",
 ];
+
+const smartQuizSteps = ["Smart Quiz", "Enter topic", "Choose question type", "Generate"];
 
 function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
@@ -766,22 +769,22 @@ function CandidateView({
           </div>
         </div>
         <div className="relative mt-5 rounded-2xl bg-white/10 p-4">
-          <p className="text-sm font-bold text-cyan-100">Next Action</p>
+          <p className="text-sm font-bold text-cyan-100">Certification Journey</p>
           <p className="mt-1 text-sm leading-6 text-slate-200">
-            Download or verify your certificate. You can still review your competency report.
+            Continue the guided assessment, review your score, then download the verified certificate when eligible.
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
-              onClick={() => onNavigate("certificate")}
+              onClick={() => onNavigate("exam")}
               className="h-11 rounded-lg bg-white text-sm font-black text-slate-950"
             >
-              Download Certificate
+              Continue Exam
             </button>
             <button
-              onClick={() => onNavigate("exam")}
+              onClick={() => onNavigate("certificate")}
               className="h-11 rounded-lg border border-white/25 text-sm font-black text-white"
             >
-              Review Exam
+              My Certificate
             </button>
           </div>
         </div>
@@ -793,12 +796,14 @@ function CandidateView({
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <ActionTile icon={ClipboardCheck} title="My Result" label={`${achievementLabel} · ${percentage}%`} />
+        <button onClick={() => onNavigate("exam")} className="text-left">
+          <ActionTile icon={ClipboardCheck} title="Start Assessment" label="briefing, MCQ, simulation, mission" />
+        </button>
         <button onClick={() => onNavigate("certificate")} className="text-left">
-          <ActionTile icon={FileBadge} title="Certificate Center" label="view, download, copy verification" />
+          <ActionTile icon={FileBadge} title="My Certificate" label={`${achievementLabel} · ${percentage}%`} />
         </button>
         <button onClick={() => onNavigate("retake")} className="text-left">
-          <ActionTile icon={RefreshCcw} title="Retake Policy" label="status, cooldown, learning modules" />
+          <ActionTile icon={RefreshCcw} title="Improve / Retake" label="weak areas and learning modules" />
         </button>
       </section>
 
@@ -875,48 +880,133 @@ function ExamView({
   selectedTool: string;
   setSelectedTool: (value: string) => void;
 }) {
-  const tools = ["AI Courseware", "Smart Quiz", "Role Talk", "Analytics"];
-  const examQuestions = [
-    sampleAssessmentPack.questions[0],
+  const tools = ["AI Courseware", "AI Image", "AI Activity", "Smart Quiz", "Role Talk"];
+  const knowledgeQuestions = [
     {
-      ...sampleAssessmentPack.questions[0],
-      id: "A-002",
-      prompt: "Which tool is best for checking student understanding immediately?",
+      id: "A-001",
+      section: "A",
+      title: "Bahagian A · MCQ",
+      prompt:
+        "Bahasa Melayu Tahun 4: Guru ingin menyerlahkan kata adjektif dalam petikan tanpa menutup teks asal. Apakah alat yang paling sesuai digunakan?",
+      meta: "Domain: Quick Start & Whiteboard",
       options: [
-        { id: "A", label: "Smart Quiz", isCorrect: true },
-        { id: "B", label: "Screen Saver" },
-        { id: "C", label: "Device Lock" },
-        { id: "D", label: "Wallpaper" },
+        { id: "A", label: "Laser Pointer" },
+        { id: "B", label: "Marker Pen", isCorrect: true },
+        { id: "C", label: "Eraser" },
+        { id: "D", label: "Compass" },
       ],
     },
-    sampleAssessmentPack.questions[2],
+    {
+      id: "A-002",
+      section: "A",
+      title: "Bahagian A · MCQ",
+      prompt:
+        "Matematik Tingkatan 2: Guru melukis fungsi y = x² menggunakan tulisan tangan. Apakah ciri EasiClass yang boleh membantu?",
+      meta: "Domain: Smart Ink",
+      options: [
+        { id: "A", label: "Clone Mode" },
+        { id: "B", label: "Smart Ink", isCorrect: true },
+        { id: "C", label: "Mask Tool" },
+        { id: "D", label: "Mind Map" },
+      ],
+    },
+    {
+      id: "A-003",
+      section: "A",
+      title: "Bahagian A · MCQ",
+      prompt:
+        "Sains Tingkatan 2: Guru memerlukan ruang tambahan untuk mencatat pemerhatian eksperimen tanpa menukar slaid. Apakah tindakan paling sesuai?",
+      meta: "Domain: Floating Lesson View",
+      options: [
+        { id: "A", label: "Tutup slaid semasa" },
+        { id: "B", label: "Klik Hand untuk menggerakkan ruang penulisan", isCorrect: true },
+        { id: "C", label: "Padam semua anotasi" },
+        { id: "D", label: "Buka fail baharu" },
+      ],
+    },
   ];
-  const [phase, setPhase] = useState<"briefing" | "questions" | "simulation" | "review" | "result">("briefing");
+  const missionQuestions = [
+    {
+      id: "C-001",
+      section: "C",
+      title: "Bahagian C · Mission Scenario",
+      prompt:
+        "Smart Quiz menunjukkan majoriti murid salah pada satu konsep fotosintesis. Apakah tindakan profesional terbaik selepas melihat data tersebut?",
+      meta: "Mission: Analysis AI · Intervention planning · 3 marks",
+      options: [
+        { id: "A", label: "Teruskan topik seterusnya kerana kuiz sudah selesai" },
+        { id: "B", label: "Gunakan Lesson Analytics untuk kenal pasti miskonsepsi dan lakukan reteaching", isCorrect: true },
+        { id: "C", label: "Padam soalan itu daripada rekod" },
+        { id: "D", label: "Minta semua murid ulang kuiz tanpa penerangan" },
+      ],
+    },
+    {
+      id: "C-002",
+      section: "C",
+      title: "Bahagian C · AI Mission",
+      prompt:
+        "AI menjana bahan Sejarah yang kelihatan menarik tetapi guru belum pasti ketepatannya. Apakah pilihan paling sesuai sebelum digunakan?",
+      meta: "Mission: AI validation · Pedagogical judgement · 3 marks",
+      options: [
+        { id: "A", label: "Terus guna kerana AI lebih pantas" },
+        { id: "B", label: "Semak fakta, ubah suai kandungan, dan pastikan sesuai dengan objektif PdP", isCorrect: true },
+        { id: "C", label: "Buang semua kandungan AI" },
+        { id: "D", label: "Minta murid tentukan sama ada kandungan betul" },
+      ],
+    },
+  ];
+  const [phase, setPhase] = useState<"briefing" | "knowledge" | "simulation" | "mission" | "review" | "result">("briefing");
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [missionIndex, setMissionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [timerMinutes, setTimerMinutes] = useState(90);
   const [rulesAccepted, setRulesAccepted] = useState(false);
-  const [simulationFeedback, setSimulationFeedback] = useState("Complete each task to record partial marks.");
-  const [hotspotDone, setHotspotDone] = useState(false);
-  const [workflowDone, setWorkflowDone] = useState(false);
-  const [dragDone, setDragDone] = useState(false);
-  const completedSimulation = [hotspotDone, workflowDone, dragDone].filter(Boolean).length;
-  const answeredCount = Object.keys(answers).length + completedSimulation;
-  const canSubmit = Object.keys(answers).length === examQuestions.length && completedSimulation === 3;
-  const previewScore = 68 + completedSimulation * 11 + (Object.values(answers).includes("B") ? 45 : 36);
+  const [simulationFeedback, setSimulationFeedback] = useState("Complete each task. The simulator records partial marks automatically.");
+  const [coursewareDone, setCoursewareDone] = useState(false);
+  const [aiImageDone, setAiImageDone] = useState(false);
+  const [activityDone, setActivityDone] = useState(false);
+  const [quizDone, setQuizDone] = useState(false);
+  const [roleTalkDone, setRoleTalkDone] = useState(false);
+  const simulationTasks = [
+    coursewareDone,
+    aiImageDone,
+    activityDone,
+    quizDone,
+    roleTalkDone,
+  ];
+  const completedSimulation = simulationTasks.filter(Boolean).length;
+  const knowledgeAnswered = knowledgeQuestions.filter((question) => answers[question.id]).length;
+  const missionAnswered = missionQuestions.filter((question) => answers[question.id]).length;
+  const totalDemoItems = knowledgeQuestions.length + missionQuestions.length + simulationTasks.length;
+  const answeredCount = knowledgeAnswered + missionAnswered + completedSimulation;
+  const canSubmit =
+    knowledgeAnswered === knowledgeQuestions.length &&
+    missionAnswered === missionQuestions.length &&
+    completedSimulation === simulationTasks.length;
+  const correctKnowledge = knowledgeQuestions.filter((question) =>
+    question.options.find((option) => option.id === answers[question.id])?.isCorrect,
+  ).length;
+  const correctMission = missionQuestions.filter((question) =>
+    question.options.find((option) => option.id === answers[question.id])?.isCorrect,
+  ).length;
+  const sectionAScore = Math.round((correctKnowledge / knowledgeQuestions.length) * 80);
+  const sectionBScore = completedSimulation * 8;
+  const sectionCScore = Math.round((correctMission / missionQuestions.length) * 60);
+  const previewScore = sectionAScore + sectionBScore + sectionCScore;
   const previewPercentage = Math.round((previewScore / 180) * 100);
   const achievement = resolveAchievement(previewScore, 180, sampleAssessmentPack.achievementRules);
-  const currentQuestion = examQuestions[questionIndex];
+  const currentQuestion = knowledgeQuestions[questionIndex];
+  const currentMission = missionQuestions[missionIndex];
 
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-500">Assessment Pack</p>
-            <h2 className="mt-1 text-2xl font-black tracking-tight">Sabah Pilot Certification</h2>
-            <p className="mt-1 text-sm text-slate-600">Certification Passport · 180 marks · 90 minutes</p>
+            <p className="text-sm font-semibold text-slate-500">Certification Assessment</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight">Sabah MAXHUB Educator</h2>
+            <p className="mt-1 text-sm text-slate-600">Guided mobile exam · 180 marks · certificate at 50%</p>
           </div>
           <div className="rounded-2xl bg-[#062a6f] px-3 py-2 text-right text-white">
             <p className="text-xs font-semibold text-slate-300">Timer</p>
@@ -925,28 +1015,24 @@ function ExamView({
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <StatusPill icon={Timer} label={timerMinutes <= 10 ? "Time warning" : "Timer active"} />
-          <StatusPill icon={Layers3} label={`${answeredCount}/6 tasks`} />
+          <StatusPill icon={Layers3} label={`${answeredCount}/${totalDemoItems} items`} />
           <StatusPill icon={ShieldCheck} label={phase === "result" ? "Submitted" : "In progress"} />
         </div>
       </section>
 
       {phase === "briefing" && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-          <h3 className="text-xl font-black">Exam Briefing</h3>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {sampleAssessmentPack.sections.map((section) => (
-              <div key={section.id} className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm font-bold text-slate-500">Section {section.id}</p>
-                <p className="mt-1 font-black">{section.title}</p>
-                <p className="mt-2 text-sm text-slate-600">{section.totalScore} marks</p>
-              </div>
-            ))}
+          <h3 className="text-xl font-black">Pre-Assessment Briefing</h3>
+          <div className="mt-4 grid gap-3">
+            <BriefingRow icon={BookOpenCheck} title="Section A · Knowledge Assessment" detail="80 MCQ based on classroom situations and EasiClass tools." score="80 marks" />
+            <BriefingRow icon={TabletSmartphone} title="Section B · Digital Performance Simulation" detail="20 operation tasks with hotspot, step order, upload and generation actions." score="40 marks" />
+            <BriefingRow icon={ClipboardList} title="Section C · Mission-Based Scenarios" detail="20 professional judgement missions for AI, pedagogy, analytics and intervention." score="60 marks" />
           </div>
-          <ul className="mt-5 space-y-2 text-sm leading-6 text-slate-700">
-            <li>One attempt is recorded when you submit the exam.</li>
-            <li>Below 50% will unlock retake after 7 days, maximum 3 attempts per year.</li>
-            <li>Section B records hotspot, workflow, and drag-task completion.</li>
-          </ul>
+          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+            <StatusPill icon={FileBadge} label="50%+ certificate" />
+            <StatusPill icon={RefreshCcw} label="Retake opens after 7 days" />
+            <StatusPill icon={Gauge} label="Competency report generated" />
+          </div>
           <label className="mt-5 flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-700">
             <input
               type="checkbox"
@@ -958,7 +1044,7 @@ function ExamView({
           </label>
           <button
             onClick={() => {
-              setPhase("questions");
+              setPhase("knowledge");
               setTimerMinutes(89);
             }}
             disabled={!rulesAccepted}
@@ -972,15 +1058,15 @@ function ExamView({
         </section>
       )}
 
-      {phase === "questions" && (
+      {phase === "knowledge" && (
         <section className="grid gap-4 xl:grid-cols-[0.75fr_1.25fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-500">Question Navigator</p>
+            <p className="text-sm font-semibold text-slate-500">Section A Navigator</p>
             <p className="mt-1 text-sm font-bold text-slate-950">
-              Question {questionIndex + 1} of {examQuestions.length}
+              Question {questionIndex + 1} of {knowledgeQuestions.length}
             </p>
             <div className="mt-4 grid grid-cols-5 gap-2">
-              {examQuestions.map((question, index) => (
+              {knowledgeQuestions.map((question, index) => (
                 <button
                   key={question.id}
                   onClick={() => setQuestionIndex(index)}
@@ -1002,10 +1088,10 @@ function ExamView({
           </div>
           <QuestionCard
             section={`Question ${questionIndex + 1}`}
-            title={currentQuestion.section === "C" ? "Mission Scenario" : "Knowledge Assessment"}
+            title={currentQuestion.title}
             prompt={currentQuestion.prompt}
-            meta={currentQuestion.section === "C" ? "Subject: Science · Tool: Lesson Analytics · Competency: Data intervention" : "Objective item · Competency mapped"}
-            options={currentQuestion.options ?? []}
+            meta={currentQuestion.meta}
+            options={currentQuestion.options}
             selectedAnswer={answers[currentQuestion.id] ?? null}
             onSelect={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
           />
@@ -1026,7 +1112,7 @@ function ExamView({
             </button>
             <button
               onClick={() => {
-                if (questionIndex === examQuestions.length - 1) setPhase("simulation");
+                if (questionIndex === knowledgeQuestions.length - 1) setPhase("simulation");
                 else setQuestionIndex((index) => index + 1);
               }}
               className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
@@ -1044,9 +1130,9 @@ function ExamView({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-slate-500">Section B</p>
-                <h3 className="text-xl font-black">EasiClass Skill Lab</h3>
+                <h3 className="text-xl font-black">Digital Performance Tasks</h3>
               </div>
-              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">{completedSimulation}/3 tasks</span>
+              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">{completedSimulation}/5 tasks</span>
             </div>
 
             <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
@@ -1075,30 +1161,48 @@ function ExamView({
                 </div>
                 <div className="mt-4 grid gap-3">
                   <SimulationTask
-                    done={hotspotDone}
-                    title="Click hotspot"
-                    detail="Tap AI Courseware in the toolbar"
-                    onDone={() => {
-                      setHotspotDone(true);
-                      setSimulationFeedback("Correct hotspot selected. +12 partial marks.");
-                    }}
-                  />
-                  <SimulationTask
-                    done={workflowDone}
-                    title="Arrange workflow"
+                    done={coursewareDone}
+                    title="Generate AI Courseware"
                     detail={simulationSteps.join(" → ")}
                     onDone={() => {
-                      setWorkflowDone(true);
-                      setSimulationFeedback("Workflow order accepted. +11 partial marks.");
+                      setCoursewareDone(true);
+                      setSimulationFeedback("Correct order recorded. Rubric: full sequence = 2 marks.");
                     }}
                   />
                   <SimulationTask
-                    done={dragDone}
-                    title="Drag tool into lesson plan"
-                    detail={`${selectedTool} dragged into Science activity block`}
+                    done={aiImageDone}
+                    title="AI Image"
+                    detail="Click Media, then enter a prompt for Gunung Kinabalu"
                     onDone={() => {
-                      setDragDone(true);
-                      setSimulationFeedback("Tool placement recorded. +11 partial marks.");
+                      setAiImageDone(true);
+                      setSimulationFeedback("Partial marks recorded: Media click = 1, prompt entry = 1.");
+                    }}
+                  />
+                  <SimulationTask
+                    done={activityDone}
+                    title="AI Activity"
+                    detail="Upload textbook snapshot and generate an interactive activity"
+                    onDone={() => {
+                      setActivityDone(true);
+                      setSimulationFeedback("Partial marks recorded: upload snapshot = 1, generate activity = 1.");
+                    }}
+                  />
+                  <SimulationTask
+                    done={quizDone}
+                    title="Smart Quiz"
+                    detail={smartQuizSteps.join(" → ")}
+                    onDone={() => {
+                      setQuizDone(true);
+                      setSimulationFeedback("Smart Quiz workflow accepted. Rubric: correct sequence = 2 marks.");
+                    }}
+                  />
+                  <SimulationTask
+                    done={roleTalkDone}
+                    title="Role Talk"
+                    detail={`${selectedTool} used to turn a textbook dialogue into speaking practice`}
+                    onDone={() => {
+                      setRoleTalkDone(true);
+                      setSimulationFeedback("Partial marks recorded: upload dialog = 1, generate Role Talk = 1.");
                     }}
                   />
                 </div>
@@ -1108,18 +1212,75 @@ function ExamView({
           </div>
 
           <div className="space-y-4">
-            <ExamCard icon={BookOpenCheck} section="Section A" title="Knowledge Assessment" detail={`${Object.keys(answers).length}/3 answered`} score="80 marks" />
-            <ExamCard icon={TabletSmartphone} section="Section B" title="Advanced Simulation" detail="hotspot, workflow, drag scoring" score="40 marks" />
-            <ExamCard icon={ClipboardList} section="Section C" title="Mission Assessment" detail="AI judgement and intervention planning" score="60 marks" />
+            <ExamCard icon={BookOpenCheck} section="Section A" title="Knowledge Assessment" detail={`${knowledgeAnswered}/${knowledgeQuestions.length} answered`} score={`${sectionAScore}/80`} />
+            <ExamCard icon={TabletSmartphone} section="Section B" title="Digital Simulation" detail="step order, hotspot, upload, generation scoring" score={`${sectionBScore}/40`} />
+            <ExamCard icon={ClipboardList} section="Section C" title="Mission Assessment" detail={`${missionAnswered}/${missionQuestions.length} mission scenarios`} score={`${sectionCScore}/60`} />
             <button
-              onClick={() => setPhase("review")}
-              disabled={!canSubmit}
+              onClick={() => setPhase("mission")}
+              disabled={completedSimulation !== simulationTasks.length}
               className={classNames(
                 "flex h-12 w-full items-center justify-center rounded-lg text-sm font-black transition",
-                canSubmit ? "bg-emerald-600 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
+                completedSimulation === simulationTasks.length ? "bg-slate-950 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
               )}
             >
-              {canSubmit ? "Review answers before submit" : "Complete all simulation tasks"}
+              {completedSimulation === simulationTasks.length ? "Continue to Section C" : "Complete Section B tasks"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {phase === "mission" && (
+        <section className="grid gap-4 xl:grid-cols-[0.75fr_1.25fr]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">Section C Navigator</p>
+            <p className="mt-1 text-sm font-bold text-slate-950">
+              Mission {missionIndex + 1} of {missionQuestions.length}
+            </p>
+            <div className="mt-4 grid grid-cols-5 gap-2">
+              {missionQuestions.map((question, index) => (
+                <button
+                  key={question.id}
+                  onClick={() => setMissionIndex(index)}
+                  className={classNames(
+                    "grid size-10 place-items-center rounded-lg text-sm font-black",
+                    missionIndex === index
+                      ? "bg-slate-950 text-white"
+                      : answers[question.id]
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-500",
+                  )}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+          <QuestionCard
+            section={`Mission ${missionIndex + 1}`}
+            title={currentMission.title}
+            prompt={currentMission.prompt}
+            meta={currentMission.meta}
+            options={currentMission.options}
+            selectedAnswer={answers[currentMission.id] ?? null}
+            onSelect={(answer) => setAnswers((current) => ({ ...current, [currentMission.id]: answer }))}
+          />
+          <div className="xl:col-span-2 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setMissionIndex((index) => Math.max(index - 1, 0))}
+              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-bold"
+            >
+              <ArrowLeft size={17} />
+              Previous
+            </button>
+            <button
+              onClick={() => {
+                if (missionIndex === missionQuestions.length - 1) setPhase("review");
+                else setMissionIndex((index) => index + 1);
+              }}
+              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
+            >
+              {missionIndex === missionQuestions.length - 1 ? "Review" : "Next"}
+              <ArrowRight size={17} />
             </button>
           </div>
         </section>
@@ -1130,21 +1291,26 @@ function ExamView({
           <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
             <h3 className="text-xl font-black">Review Before Submission</h3>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <AdminMetric icon={CheckCircle2} label="Answered" value={`${Object.keys(answers).length}/${examQuestions.length}`} />
+              <AdminMetric icon={CheckCircle2} label="Answered" value={`${knowledgeAnswered + missionAnswered}/${knowledgeQuestions.length + missionQuestions.length}`} />
               <AdminMetric icon={Flag} label="Flagged" value={String(Object.values(flagged).filter(Boolean).length)} />
-              <AdminMetric icon={TabletSmartphone} label="Simulation" value={`${completedSimulation}/3`} />
+              <AdminMetric icon={TabletSmartphone} label="Simulation" value={`${completedSimulation}/5`} />
             </div>
             <div className="mt-4 space-y-2">
-              {examQuestions.map((question, index) => (
+              {[...knowledgeQuestions, ...missionQuestions].map((question, index) => (
                 <button
                   key={question.id}
                   onClick={() => {
-                    setQuestionIndex(index);
-                    setPhase("questions");
+                    if (question.section === "A") {
+                      setQuestionIndex(index);
+                      setPhase("knowledge");
+                    } else {
+                      setMissionIndex(index - knowledgeQuestions.length);
+                      setPhase("mission");
+                    }
                   }}
                   className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left text-sm font-bold"
                 >
-                  <span>Question {index + 1}</span>
+                  <span>{question.section === "A" ? "Question" : "Mission"} {question.section === "A" ? index + 1 : index - knowledgeQuestions.length + 1}</span>
                   <span className={answers[question.id] ? "text-emerald-700" : "text-rose-700"}>
                     {answers[question.id] ? "Answered" : "Unanswered"}
                   </span>
@@ -1154,9 +1320,13 @@ function ExamView({
           </div>
           <button
             onClick={() => setPhase("result")}
-            className="h-12 w-full rounded-lg bg-emerald-600 text-sm font-black text-white"
+            disabled={!canSubmit}
+            className={classNames(
+              "h-12 w-full rounded-lg text-sm font-black",
+              canSubmit ? "bg-emerald-600 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
+            )}
           >
-            Submit final exam
+            {canSubmit ? "Submit final exam" : "Complete all sections before submit"}
           </button>
         </section>
       )}
@@ -1166,9 +1336,41 @@ function ExamView({
           score={previewScore}
           percentage={previewPercentage}
           achievement={achievement.achievementLabel}
+          sectionAScore={sectionAScore}
+          sectionBScore={sectionBScore}
+          sectionCScore={sectionCScore}
           onRetake={() => setPhase("briefing")}
         />
       )}
+    </div>
+  );
+}
+
+function BriefingRow({
+  icon: Icon,
+  title,
+  detail,
+  score,
+}: {
+  icon: typeof BookOpenCheck;
+  title: string;
+  detail: string;
+  score: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4">
+      <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-[#062a6f] shadow-sm">
+        <Icon size={21} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <h4 className="font-black text-slate-950">{title}</h4>
+          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600">
+            {score}
+          </span>
+        </div>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{detail}</p>
+      </div>
     </div>
   );
 }
@@ -1191,7 +1393,23 @@ function SimulationTask({ done, title, detail, onDone }: { done: boolean; title:
   );
 }
 
-function ResultView({ score, percentage, achievement, onRetake }: { score: number; percentage: number; achievement: string; onRetake: () => void }) {
+function ResultView({
+  score,
+  percentage,
+  achievement,
+  sectionAScore,
+  sectionBScore,
+  sectionCScore,
+  onRetake,
+}: {
+  score: number;
+  percentage: number;
+  achievement: string;
+  sectionAScore: number;
+  sectionBScore: number;
+  sectionCScore: number;
+  onRetake: () => void;
+}) {
   const passed = percentage >= 50;
 
   return (
@@ -1202,9 +1420,9 @@ function ResultView({ score, percentage, achievement, onRetake }: { score: numbe
         <p className="mt-2 text-sm leading-6 text-white/90">{achievement}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
-        <AdminMetric icon={BookOpenCheck} label="Section A" value="68/80" />
-        <AdminMetric icon={TabletSmartphone} label="Section B" value="34/40" />
-        <AdminMetric icon={ClipboardList} label="Section C" value="54/60" />
+        <AdminMetric icon={BookOpenCheck} label="Section A" value={`${sectionAScore}/80`} />
+        <AdminMetric icon={TabletSmartphone} label="Section B" value={`${sectionBScore}/40`} />
+        <AdminMetric icon={ClipboardList} label="Section C" value={`${sectionCScore}/60`} />
       </div>
       <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
         <h3 className="text-xl font-black">Next Action</h3>
@@ -1287,7 +1505,7 @@ function QuestionCard({
 
 function CertificateView({ percentage, totalScore }: { percentage: number; totalScore: number }) {
   const [certificateNotice, setCertificateNotice] = useState("Certificate is ready for secure download.");
-  const verificationLink = "http://localhost:3001/verify/SME-2026-000142";
+  const verificationLink = "/verify/SME-2026-000142";
 
   return (
     <div className="space-y-5">
@@ -1592,6 +1810,8 @@ function AdminView({
         </button>
       </section>
 
+      <AssessmentBlueprint />
+
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <QuestionEditor onSave={addQuestion} />
         <ImportPreview onConfirm={importPack} />
@@ -1605,8 +1825,63 @@ function AdminView({
   );
 }
 
+function AssessmentBlueprint() {
+  const blueprint = [
+    {
+      section: "A",
+      title: "Knowledge Assessment",
+      format: "80 MCQ",
+      marks: "80 marks",
+      coverage: "Whiteboard, Smart Ink, Subject Tools, AI Preparation, Smart Quiz, Hybrid Learning",
+    },
+    {
+      section: "B",
+      title: "Digital Performance Simulation",
+      format: "20 tasks x 2 marks",
+      marks: "40 marks",
+      coverage: "Click hotspot, step order, upload action, generation task, partial marks",
+    },
+    {
+      section: "C",
+      title: "Mission-Based Scenarios",
+      format: "20 scenarios x 3 marks",
+      marks: "60 marks",
+      coverage: "Teacher missions, AI validation, analytics, intervention, leadership judgement",
+    },
+  ];
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <div className="flex items-center gap-3">
+        <ClipboardList className="text-slate-500" size={24} />
+        <div>
+          <p className="text-sm font-semibold text-slate-500">Certification Blueprint</p>
+          <h2 className="text-xl font-black">Instrument Structure</h2>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        {blueprint.map((item) => (
+          <div key={item.section} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="grid size-9 place-items-center rounded-lg bg-[#062a6f] text-sm font-black text-white">
+                {item.section}
+              </span>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600">{item.marks}</span>
+            </div>
+            <h3 className="mt-4 font-black">{item.title}</h3>
+            <p className="mt-1 text-sm font-bold text-cyan-700">{item.format}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{item.coverage}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function QuestionEditor({ onSave }: { onSave: () => void }) {
   const [saved, setSaved] = useState(false);
+  const [section, setSection] = useState("A");
+  const [questionType, setQuestionType] = useState("single-choice");
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
@@ -1618,21 +1893,58 @@ function QuestionEditor({ onSave }: { onSave: () => void }) {
         </div>
       </div>
       <div className="mt-4 grid gap-3">
-        <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue="Which EasiClass tool generates a quiz from lesson content?" />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <select className="h-11 rounded-lg border border-slate-200 px-3 text-sm">
-            <option>single-choice</option>
-            <option>hotspot</option>
-            <option>step-order</option>
-            <option>scenario-choice</option>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <select
+            value={section}
+            onChange={(event) => setSection(event.target.value)}
+            className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold"
+          >
+            <option value="A">Section A · MCQ</option>
+            <option value="B">Section B · Simulation</option>
+            <option value="C">Section C · Mission</option>
           </select>
-          <select className="h-11 rounded-lg border border-slate-200 px-3 text-sm">
+          <select
+            value={questionType}
+            onChange={(event) => setQuestionType(event.target.value)}
+            className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold"
+          >
+            <option value="single-choice">single-choice</option>
+            <option value="hotspot">hotspot</option>
+            <option value="step-order">step-order</option>
+            <option value="scenario-choice">scenario-choice</option>
+            <option value="rubric-task">rubric-task</option>
+          </select>
+          <select className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
+            <option>Quick Start & Whiteboard</option>
+            <option>Smart Ink</option>
+            <option>AI Preparation</option>
             <option>Smart Quiz</option>
-            <option>AI Courseware</option>
-            <option>Lesson Analytics</option>
+            <option>Analysis AI</option>
+            <option>Hybrid Learning</option>
           </select>
-          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue="4 marks" />
+          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold" defaultValue={section === "A" ? "1 mark" : section === "B" ? "2 marks" : "3 marks"} />
         </div>
+        <textarea
+          className="min-h-24 rounded-lg border border-slate-200 p-3 text-sm leading-6"
+          defaultValue={
+            section === "B"
+              ? "Situasi: Anda ingin menyediakan PdP Sains Tahun 5 bertajuk Sistem Suria.\nTugasan: Susun langkah yang betul."
+              : "Matematik Tingkatan 2: Guru melukis fungsi y = x² menggunakan tulisan tangan. Apakah ciri EasiClass yang boleh membantu?"
+          }
+        />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Generate with AI > Enter topic > Review objectives" : "A. Clone Mode"} />
+          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Generate outline > Generate courseware" : "B. Smart Ink"} />
+          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Correct sequence = 2 marks" : "Answer: B"} />
+        </div>
+        <textarea
+          className="min-h-20 rounded-lg border border-slate-200 p-3 text-sm leading-6"
+          defaultValue={
+            section === "B"
+              ? "Rubrik: Urutan betul = 2 markah. Partial marks can be assigned per required step."
+              : "Rasional: Smart Ink boleh menukar formula tulisan tangan kepada graf fungsi."
+          }
+        />
       </div>
       {saved && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">Question saved to draft pack.</p>}
       <button
@@ -1650,23 +1962,39 @@ function QuestionEditor({ onSave }: { onSave: () => void }) {
 
 function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
   const [confirmed, setConfirmed] = useState(false);
+  const detectedRows = [
+    { section: "A", type: "MCQ", count: 80, status: "Ready" },
+    { section: "B", type: "Simulation rubric", count: 20, status: "Rubric mapped" },
+    { section: "C", type: "Mission scenario", count: 20, status: "Needs review" },
+  ];
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
       <div className="flex items-center gap-3">
         <Upload className="text-slate-500" size={24} />
         <div>
-          <p className="text-sm font-semibold text-slate-500">Excel / CSV Import Preview</p>
-          <h2 className="text-xl font-black">Validate Content Pack</h2>
+          <p className="text-sm font-semibold text-slate-500">PDF / Excel Import Preview</p>
+          <h2 className="text-xl font-black">Validate Instrument Pack</h2>
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <AdminMetric icon={CheckCircle2} label="Valid Rows" value="24" />
-        <AdminMetric icon={ShieldCheck} label="Warnings" value="3" />
-        <AdminMetric icon={XCircle} label="Errors" value="1" />
+        <AdminMetric icon={CheckCircle2} label="Detected Items" value="120" />
+        <AdminMetric icon={ShieldCheck} label="Rubrics" value="20" />
+        <AdminMetric icon={XCircle} label="Needs Review" value="4" />
       </div>
-      <div className="mt-4 rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800">
-        Row 18 missing competency mapping. Admin can fix before publishing.
+      <div className="mt-4 space-y-2">
+        {detectedRows.map((row) => (
+          <div key={row.section} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3">
+            <div>
+              <p className="text-sm font-black">Section {row.section} · {row.type}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{row.count} items detected from instrument files</p>
+            </div>
+            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600">{row.status}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+        4 mission scenarios need admin review for achievement level and competency mapping before publishing.
       </div>
       {confirmed && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">Import confirmed and staged for review.</p>}
       <button
