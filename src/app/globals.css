@@ -30,3 +30,33 @@ button {
   background: #0891b2;
   color: white;
 }
+
+.certificate-sheet {
+  aspect-ratio: 297 / 210;
+}
+
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 297mm;
+    height: 210mm;
+    background: white;
+  }
+
+  body * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .certificate-sheet {
+    width: 297mm;
+    height: 210mm;
+    aspect-ratio: auto;
+    page-break-inside: avoid;
+  }
+}

@@ -43,7 +43,7 @@ import {
   ListChecks,
   LogOut,
   Mail,
-  Map,
+  Map as MapIcon,
   MapPin,
   Route,
   Settings,
@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { resolveAchievement, sampleAssessmentPack } from "@/lib/assessment";
+import type { AssessmentQuestion, CompetencyArea, QuestionType } from "@/lib/assessment";
 
 type UserRole = "candidate" | "school-admin" | "ppd-admin" | "jpns-admin" | "super-admin";
 type View =
@@ -67,11 +68,54 @@ type View =
   | "admin"
   | "users"
   | "settings";
+type ExamPhase = "briefing" | "knowledge" | "simulation" | "mission" | "review" | "result";
 
 type NavItem = {
   view: View;
   icon: typeof LayoutDashboard;
   label: string;
+};
+
+type CompetencyResult = {
+  area: CompetencyArea;
+  label: string;
+  earned: number;
+  total: number;
+  percentage: number;
+  recommendation: string;
+};
+
+type EditableQuestion = AssessmentQuestion & {
+  status: "draft" | "published" | "review";
+  version: string;
+  lastEdited: string;
+};
+
+type AdminAuditEntry = {
+  id: string;
+  action: string;
+  actor: string;
+  time: string;
+  detail: string;
+};
+
+type SavedExamAttempt = {
+  phase: ExamPhase;
+  questionIndex: number;
+  missionIndex: number;
+  answers: Record<string, string>;
+  flagged: Record<string, boolean>;
+  timerMinutes: number;
+  activeSimulationId: string;
+  simulationCompleted: Record<string, boolean>;
+  simulationScores: Record<string, number>;
+  hotspotAttempts: Record<string, string>;
+  dragPlacements: Record<string, string>;
+  simulationAttemptLog: string[];
+  stepOrders: Record<string, string[]>;
+  guidedProgress: Record<string, number>;
+  simulationPrompts: Record<string, string>;
+  lastSavedIso: string;
 };
 
 const roleProfiles: Record<
@@ -218,6 +262,82 @@ const assessmentPacks = [
   },
 ];
 
+const initialEditableQuestions: EditableQuestion[] = sampleAssessmentPack.questions.slice(0, 12).map((question, index) => ({
+  ...question,
+  status: index < 6 ? "published" : index < 10 ? "draft" : "review",
+  version: index < 6 ? "v1.0" : "v1.1",
+  lastEdited: index < 6 ? "Published pack" : "Today",
+}));
+
+const initialAuditEntries: AdminAuditEntry[] = [
+  {
+    id: "AUD-001",
+    action: "Published",
+    actor: "Super Admin",
+    time: "09:12",
+    detail: "Sabah Pilot Certification v1.0 activated",
+  },
+  {
+    id: "AUD-002",
+    action: "Scoring Rule",
+    actor: "Assessment Lead",
+    time: "10:04",
+    detail: "Section B partial scoring enabled",
+  },
+  {
+    id: "AUD-003",
+    action: "Certificate",
+    actor: "System",
+    time: "11:18",
+    detail: "SME-2026-000142 issued to Nur Aina Abdullah",
+  },
+];
+
+function buildPublishChecklist(questions: EditableQuestion[], draftItems: number, reviewItems: number) {
+  const publishQueue = questions.filter((question) => question.status === "draft" || question.status === "review");
+  const sectionCounts = sampleAssessmentPack.questions.reduce(
+    (acc, question) => ({ ...acc, [question.section]: acc[question.section] + 1 }),
+    { A: 0, B: 0, C: 0 } as Record<"A" | "B" | "C", number>,
+  );
+  const scoreBlueprintOk = sampleAssessmentPack.sections.every((section) =>
+    (section.id === "A" && section.totalScore === 80) ||
+    (section.id === "B" && section.totalScore === 40) ||
+    (section.id === "C" && section.totalScore === 60),
+  );
+
+  return [
+    {
+      label: "Draft queue ready",
+      detail: `${draftItems} draft items staged`,
+      passed: draftItems > 0,
+    },
+    {
+      label: "Admin review cleared",
+      detail: reviewItems === 0 ? "No items waiting for review" : `${reviewItems} imported items need approval`,
+      passed: reviewItems === 0,
+    },
+    {
+      label: "Section blueprint locked",
+      detail: `A${sectionCounts.A} / B${sectionCounts.B} / C${sectionCounts.C} mapped to 80/40/60 marks`,
+      passed: scoreBlueprintOk,
+    },
+    {
+      label: "Answer keys and simulation steps",
+      detail: "Every queued item has an answer key or Section B scoring steps",
+      passed: publishQueue.every((question) =>
+        question.section === "B"
+          ? Boolean(question.simulation?.stepOptions?.length || question.simulation?.guidedActions?.length)
+          : Boolean(question.options?.some((option) => option.isCorrect)),
+      ),
+    },
+    {
+      label: "Competency mapping",
+      detail: "All queued items are linked to a competency area",
+      passed: publishQueue.every((question) => Boolean(question.competency)),
+    },
+  ];
+}
+
 const districtStats = [
   { label: "Kota Kinabalu", pass: 82, teachers: 428 },
   { label: "Sandakan", pass: 74, teachers: 316 },
@@ -225,18 +345,145 @@ const districtStats = [
   { label: "Keningau", pass: 63, teachers: 204 },
 ];
 
-const simulationSteps = [
-  "Generate with AI",
-  "Enter topic",
-  "Review objectives",
-  "Generate outline",
-  "Generate courseware",
-];
-
-const smartQuizSteps = ["Smart Quiz", "Enter topic", "Choose question type", "Generate"];
-
 function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
+}
+
+const examAttemptStorageKey = "maxhub-demo-exam-attempt";
+
+function readSavedExamAttempt() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(examAttemptStorageKey);
+    if (!value) return null;
+    return JSON.parse(value) as SavedExamAttempt;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedExamAttempt(attempt: SavedExamAttempt) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(examAttemptStorageKey, JSON.stringify(attempt));
+}
+
+function clearSavedExamAttempt() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(examAttemptStorageKey);
+}
+
+function formatSavedTime(iso?: string) {
+  if (!iso) return "Not saved yet";
+  const date = new Date(iso);
+
+  if (Number.isNaN(date.getTime())) return "Saved recently";
+  return `Saved ${date.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+const competencyLabels: Record<CompetencyArea, string> = {
+  "technical-operations": "Technical Operations",
+  "whiteboard-smart-ink": "Whiteboard & Smart Ink",
+  "ai-courseware": "AI Courseware",
+  "ai-activity": "AI Activity",
+  "smart-quiz": "Smart Quiz",
+  "hybrid-learning": "Hybrid Learning",
+  "lesson-analytics": "Lesson Analytics",
+  "classroom-engagement": "Classroom Engagement",
+  "ai-pedagogy": "AI Pedagogy",
+  "data-intervention": "Data Intervention",
+};
+
+const competencyRecommendations: Record<CompetencyArea, string> = {
+  "technical-operations": "Repeat the quick-start operations lab and practise attendance, import, and classroom setup.",
+  "whiteboard-smart-ink": "Practise Smart Ink, subject tools, masking, and visual explanation workflows.",
+  "ai-courseware": "Review prompt structure, AI courseware generation, and teacher validation checkpoints.",
+  "ai-activity": "Practise turning snapshots and content into reviewed AI activities before publishing.",
+  "smart-quiz": "Run a Smart Quiz cycle: generate, launch, review responses, and reteach weak concepts.",
+  "hybrid-learning": "Practise live session sharing, remote learner feedback, and hybrid classroom routines.",
+  "lesson-analytics": "Use Lesson History and Class Insight to turn results into reteaching decisions.",
+  "classroom-engagement": "Try random picker, team competition, timers, and interaction routines in a lesson.",
+  "ai-pedagogy": "Focus on ethical AI use, role-based activities, and teacher judgement before using AI output.",
+  "data-intervention": "Build a simple intervention plan from quiz data, observation, and student follow-up needs.",
+};
+
+function getQuestionWeight(question: AssessmentQuestion, sectionCounts: Record<"A" | "B" | "C", number>, sectionBMultiplier: number) {
+  if (question.section === "A") return 80 / Math.max(sectionCounts.A, 1);
+  if (question.section === "C") return 60 / Math.max(sectionCounts.C, 1);
+  return question.score * sectionBMultiplier;
+}
+
+function calculateStepOrderScore(question: AssessmentQuestion, orderIds: string[]) {
+  const expected = question.simulation?.correctOrder ?? [];
+  if (expected.length === 0) return 0;
+
+  const correctPositions = expected.filter((stepId, index) => stepId === orderIds[index]).length;
+  return Number(((correctPositions / expected.length) * question.score).toFixed(2));
+}
+
+function calculateGuidedScore(question: AssessmentQuestion, completedActions: number) {
+  const actions = question.simulation?.guidedActions ?? [];
+  if (actions.length === 0) return 0;
+
+  return Number(((Math.min(completedActions, actions.length) / actions.length) * question.score).toFixed(2));
+}
+
+function getCompetencyStatus(percentage: number) {
+  if (percentage >= 85) return "Advanced";
+  if (percentage >= 70) return "Ready";
+  if (percentage >= 50) return "Developing";
+  return "Needs support";
+}
+
+function buildCompetencyReport({
+  knowledgeQuestions,
+  simulationQuestions,
+  missionQuestions,
+  answers,
+  simulationScores,
+}: {
+  knowledgeQuestions: AssessmentQuestion[];
+  simulationQuestions: AssessmentQuestion[];
+  missionQuestions: AssessmentQuestion[];
+  answers: Record<string, string>;
+  simulationScores: Record<string, number>;
+}) {
+  const sectionCounts = {
+    A: knowledgeQuestions.length,
+    B: simulationQuestions.length,
+    C: missionQuestions.length,
+  };
+  const rawSimulationTotal = simulationQuestions.reduce((sum, question) => sum + question.score, 0);
+  const sectionBMultiplier = rawSimulationTotal > 0 ? 40 / rawSimulationTotal : 0;
+  const totals = new Map<CompetencyArea, { earned: number; total: number }>();
+
+  [...knowledgeQuestions, ...simulationQuestions, ...missionQuestions].forEach((question) => {
+    const weight = getQuestionWeight(question, sectionCounts, sectionBMultiplier);
+    const current = totals.get(question.competency) ?? { earned: 0, total: 0 };
+    const isCorrect = question.options?.find((option) => option.id === answers[question.id])?.isCorrect;
+    const earned =
+      question.section === "B"
+        ? (simulationScores[question.id] ?? 0) * sectionBMultiplier
+        : isCorrect
+          ? weight
+          : 0;
+
+    totals.set(question.competency, {
+      earned: current.earned + earned,
+      total: current.total + weight,
+    });
+  });
+
+  return Array.from(totals.entries())
+    .map(([area, value]) => ({
+      area,
+      label: competencyLabels[area],
+      earned: Math.round(value.earned),
+      total: Math.round(value.total),
+      percentage: value.total > 0 ? Math.round((value.earned / value.total) * 100) : 0,
+      recommendation: competencyRecommendations[area],
+    }))
+    .sort((a, b) => a.percentage - b.percentage);
 }
 
 export default function Home() {
@@ -881,126 +1128,318 @@ function ExamView({
   setSelectedTool: (value: string) => void;
 }) {
   const tools = ["AI Courseware", "AI Image", "AI Activity", "Smart Quiz", "Role Talk"];
-  const knowledgeQuestions = [
-    {
-      id: "A-001",
-      section: "A",
-      title: "Bahagian A · MCQ",
-      prompt:
-        "Bahasa Melayu Tahun 4: Guru ingin menyerlahkan kata adjektif dalam petikan tanpa menutup teks asal. Apakah alat yang paling sesuai digunakan?",
-      meta: "Domain: Quick Start & Whiteboard",
-      options: [
-        { id: "A", label: "Laser Pointer" },
-        { id: "B", label: "Marker Pen", isCorrect: true },
-        { id: "C", label: "Eraser" },
-        { id: "D", label: "Compass" },
-      ],
-    },
-    {
-      id: "A-002",
-      section: "A",
-      title: "Bahagian A · MCQ",
-      prompt:
-        "Matematik Tingkatan 2: Guru melukis fungsi y = x² menggunakan tulisan tangan. Apakah ciri EasiClass yang boleh membantu?",
-      meta: "Domain: Smart Ink",
-      options: [
-        { id: "A", label: "Clone Mode" },
-        { id: "B", label: "Smart Ink", isCorrect: true },
-        { id: "C", label: "Mask Tool" },
-        { id: "D", label: "Mind Map" },
-      ],
-    },
-    {
-      id: "A-003",
-      section: "A",
-      title: "Bahagian A · MCQ",
-      prompt:
-        "Sains Tingkatan 2: Guru memerlukan ruang tambahan untuk mencatat pemerhatian eksperimen tanpa menukar slaid. Apakah tindakan paling sesuai?",
-      meta: "Domain: Floating Lesson View",
-      options: [
-        { id: "A", label: "Tutup slaid semasa" },
-        { id: "B", label: "Klik Hand untuk menggerakkan ruang penulisan", isCorrect: true },
-        { id: "C", label: "Padam semua anotasi" },
-        { id: "D", label: "Buka fail baharu" },
-      ],
-    },
-  ];
-  const missionQuestions = [
-    {
-      id: "C-001",
-      section: "C",
-      title: "Bahagian C · Mission Scenario",
-      prompt:
-        "Smart Quiz menunjukkan majoriti murid salah pada satu konsep fotosintesis. Apakah tindakan profesional terbaik selepas melihat data tersebut?",
-      meta: "Mission: Analysis AI · Intervention planning · 3 marks",
-      options: [
-        { id: "A", label: "Teruskan topik seterusnya kerana kuiz sudah selesai" },
-        { id: "B", label: "Gunakan Lesson Analytics untuk kenal pasti miskonsepsi dan lakukan reteaching", isCorrect: true },
-        { id: "C", label: "Padam soalan itu daripada rekod" },
-        { id: "D", label: "Minta semua murid ulang kuiz tanpa penerangan" },
-      ],
-    },
-    {
-      id: "C-002",
-      section: "C",
-      title: "Bahagian C · AI Mission",
-      prompt:
-        "AI menjana bahan Sejarah yang kelihatan menarik tetapi guru belum pasti ketepatannya. Apakah pilihan paling sesuai sebelum digunakan?",
-      meta: "Mission: AI validation · Pedagogical judgement · 3 marks",
-      options: [
-        { id: "A", label: "Terus guna kerana AI lebih pantas" },
-        { id: "B", label: "Semak fakta, ubah suai kandungan, dan pastikan sesuai dengan objektif PdP", isCorrect: true },
-        { id: "C", label: "Buang semua kandungan AI" },
-        { id: "D", label: "Minta murid tentukan sama ada kandungan betul" },
-      ],
-    },
-  ];
-  const [phase, setPhase] = useState<"briefing" | "knowledge" | "simulation" | "mission" | "review" | "result">("briefing");
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [missionIndex, setMissionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [flagged, setFlagged] = useState<Record<string, boolean>>({});
-  const [timerMinutes, setTimerMinutes] = useState(90);
+  const knowledgeQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "A");
+  const simulationQuestionBank = sampleAssessmentPack.questions.filter((question) => question.section === "B");
+  const missionQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "C");
+  const defaultStepOrders = Object.fromEntries(
+    simulationQuestionBank
+      .filter((question) => question.simulation?.stepOptions)
+      .map((question) => [
+        question.id,
+        question.simulation?.stepOptions?.map((step) => step.id) ?? [],
+      ]),
+  );
+  const [savedAttemptSeed] = useState<SavedExamAttempt | null>(() => readSavedExamAttempt());
+  const [phase, setPhaseState] = useState<ExamPhase>(savedAttemptSeed?.phase ?? "briefing");
+  const [questionIndex, setQuestionIndexState] = useState(Math.min(savedAttemptSeed?.questionIndex ?? 0, Math.max(knowledgeQuestions.length - 1, 0)));
+  const [missionIndex, setMissionIndexState] = useState(Math.min(savedAttemptSeed?.missionIndex ?? 0, Math.max(missionQuestions.length - 1, 0)));
+  const [answers, setAnswersState] = useState<Record<string, string>>(savedAttemptSeed?.answers ?? {});
+  const [flagged, setFlaggedState] = useState<Record<string, boolean>>(savedAttemptSeed?.flagged ?? {});
+  const [timerMinutes, setTimerMinutesState] = useState(savedAttemptSeed?.timerMinutes ?? 90);
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [simulationFeedback, setSimulationFeedback] = useState("Complete each task. The simulator records partial marks automatically.");
-  const [coursewareDone, setCoursewareDone] = useState(false);
-  const [aiImageDone, setAiImageDone] = useState(false);
-  const [activityDone, setActivityDone] = useState(false);
-  const [quizDone, setQuizDone] = useState(false);
-  const [roleTalkDone, setRoleTalkDone] = useState(false);
-  const simulationTasks = [
-    coursewareDone,
-    aiImageDone,
-    activityDone,
-    quizDone,
-    roleTalkDone,
-  ];
-  const completedSimulation = simulationTasks.filter(Boolean).length;
+  const [activeSimulationId, setActiveSimulationIdState] = useState(savedAttemptSeed?.activeSimulationId ?? simulationQuestionBank[0]?.id ?? "");
+  const [simulationCompleted, setSimulationCompletedState] = useState<Record<string, boolean>>(savedAttemptSeed?.simulationCompleted ?? {});
+  const [simulationScores, setSimulationScoresState] = useState<Record<string, number>>(savedAttemptSeed?.simulationScores ?? {});
+  const [hotspotAttempts, setHotspotAttemptsState] = useState<Record<string, string>>(savedAttemptSeed?.hotspotAttempts ?? {});
+  const [dragPlacements, setDragPlacementsState] = useState<Record<string, string>>(savedAttemptSeed?.dragPlacements ?? {});
+  const [simulationAttemptLog, setSimulationAttemptLogState] = useState<string[]>(savedAttemptSeed?.simulationAttemptLog ?? []);
+  const [stepOrders, setStepOrdersState] = useState<Record<string, string[]>>(savedAttemptSeed?.stepOrders ?? defaultStepOrders);
+  const [guidedProgress, setGuidedProgressState] = useState<Record<string, number>>(savedAttemptSeed?.guidedProgress ?? {});
+  const [simulationPrompts, setSimulationPromptsState] = useState<Record<string, string>>(savedAttemptSeed?.simulationPrompts ?? {});
+  const [autosaveText, setAutosaveText] = useState(formatSavedTime(savedAttemptSeed?.lastSavedIso));
+  const [navigatorOpen, setNavigatorOpen] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<"all" | "flagged" | "unanswered">("all");
+  const activeSimulation = simulationQuestionBank.find((question) => question.id === activeSimulationId) ?? simulationQuestionBank[0];
+  const completedSimulation = simulationQuestionBank.filter((question) => simulationCompleted[question.id]).length;
+  const rawSimulationScore = simulationQuestionBank.reduce((sum, question) => sum + (simulationScores[question.id] ?? 0), 0);
+  const rawSimulationTotal = simulationQuestionBank.reduce((sum, question) => sum + question.score, 0);
   const knowledgeAnswered = knowledgeQuestions.filter((question) => answers[question.id]).length;
   const missionAnswered = missionQuestions.filter((question) => answers[question.id]).length;
-  const totalDemoItems = knowledgeQuestions.length + missionQuestions.length + simulationTasks.length;
+  const totalDemoItems = knowledgeQuestions.length + missionQuestions.length + simulationQuestionBank.length;
   const answeredCount = knowledgeAnswered + missionAnswered + completedSimulation;
   const canSubmit =
     knowledgeAnswered === knowledgeQuestions.length &&
     missionAnswered === missionQuestions.length &&
-    completedSimulation === simulationTasks.length;
+    completedSimulation === simulationQuestionBank.length;
   const correctKnowledge = knowledgeQuestions.filter((question) =>
-    question.options.find((option) => option.id === answers[question.id])?.isCorrect,
+    question.options?.find((option) => option.id === answers[question.id])?.isCorrect,
   ).length;
   const correctMission = missionQuestions.filter((question) =>
-    question.options.find((option) => option.id === answers[question.id])?.isCorrect,
+    question.options?.find((option) => option.id === answers[question.id])?.isCorrect,
   ).length;
   const sectionAScore = Math.round((correctKnowledge / knowledgeQuestions.length) * 80);
-  const sectionBScore = completedSimulation * 8;
+  const sectionBScore = rawSimulationTotal > 0 ? Math.round((rawSimulationScore / rawSimulationTotal) * 40) : 0;
   const sectionCScore = Math.round((correctMission / missionQuestions.length) * 60);
   const previewScore = sectionAScore + sectionBScore + sectionCScore;
   const previewPercentage = Math.round((previewScore / 180) * 100);
   const achievement = resolveAchievement(previewScore, 180, sampleAssessmentPack.achievementRules);
+  const competencyReport = useMemo(
+    () =>
+      buildCompetencyReport({
+        knowledgeQuestions,
+        simulationQuestions: simulationQuestionBank,
+        missionQuestions,
+        answers,
+        simulationScores,
+      }),
+    [answers, knowledgeQuestions, missionQuestions, simulationQuestionBank, simulationScores],
+  );
   const currentQuestion = knowledgeQuestions[questionIndex];
   const currentMission = missionQuestions[missionIndex];
+  const reviewQuestions = [...knowledgeQuestions, ...missionQuestions].filter((question) => {
+    if (reviewFilter === "flagged") return flagged[question.id];
+    if (reviewFilter === "unanswered") return !answers[question.id];
+    return true;
+  });
+
+  function persistAttempt(overrides: Partial<SavedExamAttempt> = {}) {
+    const now = new Date().toISOString();
+    const snapshot: SavedExamAttempt = {
+      phase,
+      questionIndex,
+      missionIndex,
+      answers,
+      flagged,
+      timerMinutes,
+      activeSimulationId,
+      simulationCompleted,
+      simulationScores,
+      hotspotAttempts,
+      dragPlacements,
+      simulationAttemptLog,
+      stepOrders,
+      guidedProgress,
+      simulationPrompts,
+      lastSavedIso: now,
+      ...overrides,
+    };
+
+    writeSavedExamAttempt(snapshot);
+    setAutosaveText("Saved just now");
+  }
+
+  function goToPhase(nextPhase: ExamPhase) {
+    setPhaseState(nextPhase);
+    persistAttempt({ phase: nextPhase });
+  }
+
+  function updateQuestionIndex(nextIndex: number) {
+    const boundedIndex = Math.max(0, Math.min(nextIndex, knowledgeQuestions.length - 1));
+    setQuestionIndexState(boundedIndex);
+    persistAttempt({ questionIndex: boundedIndex });
+  }
+
+  function updateMissionIndex(nextIndex: number) {
+    const boundedIndex = Math.max(0, Math.min(nextIndex, missionQuestions.length - 1));
+    setMissionIndexState(boundedIndex);
+    persistAttempt({ missionIndex: boundedIndex });
+  }
+
+  function saveAnswer(questionId: string, answer: string) {
+    const nextAnswers = { ...answers, [questionId]: answer };
+    setAnswersState(nextAnswers);
+    persistAttempt({ answers: nextAnswers });
+  }
+
+  function toggleFlag(questionId: string) {
+    const nextFlagged = { ...flagged, [questionId]: !flagged[questionId] };
+    setFlaggedState(nextFlagged);
+    persistAttempt({ flagged: nextFlagged });
+  }
+
+  function selectSimulation(questionId: string) {
+    setActiveSimulationIdState(questionId);
+    persistAttempt({ activeSimulationId: questionId });
+  }
+
+  function appendSimulationLog(entry: string, overrides: Partial<SavedExamAttempt> = {}) {
+    const nextLog = [`${new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })} · ${entry}`, ...simulationAttemptLog].slice(0, 8);
+    setSimulationAttemptLogState(nextLog);
+    persistAttempt({ simulationAttemptLog: nextLog, ...overrides });
+    return nextLog;
+  }
+
+  function handleHotspotClick(question: AssessmentQuestion, hotspotId: string) {
+    const nextHotspotAttempts = { ...hotspotAttempts, [question.id]: hotspotId };
+    const correct = hotspotId === "ai-image-generator";
+    const score = correct ? question.score : Math.min(0.5, question.score);
+
+    setHotspotAttemptsState(nextHotspotAttempts);
+    if (correct) {
+      completeSimulationTask(
+        question,
+        score,
+        "Correct hotspot selected: AI Image Generator. Full marks recorded.",
+      );
+      appendSimulationLog(`${question.id} hotspot correct`, {
+        hotspotAttempts: nextHotspotAttempts,
+        simulationCompleted: { ...simulationCompleted, [question.id]: true },
+        simulationScores: { ...simulationScores, [question.id]: score },
+      });
+      return;
+    }
+
+    recordSimulationScore(question, score);
+    setSimulationFeedback("Wrong hotspot. Partial attempt recorded. Try selecting the AI Image Generator inside Media.");
+    appendSimulationLog(`${question.id} wrong hotspot: ${hotspotId}`, { hotspotAttempts: nextHotspotAttempts });
+  }
+
+  function handleDragDrop(question: AssessmentQuestion, zoneId: string, itemId: string) {
+    const zone = question.simulation?.dropZones?.find((dropZone) => dropZone.id === zoneId);
+    const nextDragPlacements = { ...dragPlacements, [question.id]: `${itemId}:${zoneId}` };
+    const correct = zone?.accepts === itemId;
+    const score = correct ? question.score : Math.min(0.5, question.score);
+
+    setDragPlacementsState(nextDragPlacements);
+    if (correct) {
+      completeSimulationTask(
+        question,
+        score,
+        "Correct drop: Snapshot Buku Teks sent to AI Activity / OCR Converter. Full marks recorded.",
+      );
+      appendSimulationLog(`${question.id} drag-drop correct`, {
+        dragPlacements: nextDragPlacements,
+        simulationCompleted: { ...simulationCompleted, [question.id]: true },
+        simulationScores: { ...simulationScores, [question.id]: score },
+      });
+      return;
+    }
+
+    recordSimulationScore(question, score);
+    setSimulationFeedback("Incorrect drop zone. Partial attempt recorded. Drag the textbook snapshot into AI Activity / OCR Converter.");
+    appendSimulationLog(`${question.id} wrong drop: ${itemId} to ${zoneId}`, { dragPlacements: nextDragPlacements });
+  }
+
+  function moveSimulationStep(questionId: string, index: number, direction: "up" | "down") {
+    const nextStepOrders = { ...stepOrders };
+    const nextOrder = [...(nextStepOrders[questionId] ?? [])];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= nextOrder.length) return;
+
+    [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+    nextStepOrders[questionId] = nextOrder;
+    setStepOrdersState(nextStepOrders);
+    persistAttempt({ stepOrders: nextStepOrders });
+  }
+
+  function isSimulationOrderCorrect(question: AssessmentQuestion) {
+    const expected = question.simulation?.correctOrder ?? [];
+    const actual = stepOrders[question.id] ?? [];
+
+    return expected.length > 0 && expected.every((stepId, index) => stepId === actual[index]);
+  }
+
+  function recordSimulationScore(question: AssessmentQuestion, score: number) {
+    const nextSimulationScores = {
+      ...simulationScores,
+      [question.id]: Math.max(simulationScores[question.id] ?? 0, Number(score.toFixed(2))),
+    };
+    setSimulationScoresState(nextSimulationScores);
+    persistAttempt({ simulationScores: nextSimulationScores });
+  }
+
+  function completeSimulationTask(question: AssessmentQuestion, score: number, feedback: string) {
+    const nextSimulationScores = {
+      ...simulationScores,
+      [question.id]: Math.max(simulationScores[question.id] ?? 0, Number(score.toFixed(2))),
+    };
+    const nextSimulationCompleted = { ...simulationCompleted, [question.id]: true };
+
+    setSimulationScoresState(nextSimulationScores);
+    setSimulationCompletedState(nextSimulationCompleted);
+    setSimulationFeedback(feedback);
+    persistAttempt({
+      simulationScores: nextSimulationScores,
+      simulationCompleted: nextSimulationCompleted,
+    });
+  }
+
+  function checkSimulationOrder(question: AssessmentQuestion) {
+    const score = calculateStepOrderScore(question, stepOrders[question.id] ?? []);
+
+    if (isSimulationOrderCorrect(question)) {
+      completeSimulationTask(
+        question,
+        question.score,
+        `${question.recommendedModule ?? "Workflow"} accepted. Full marks recorded (${question.score}/${question.score}).`,
+      );
+      return;
+    }
+
+    recordSimulationScore(question, score);
+    setSimulationFeedback(`Partial score saved (${score}/${question.score}). Reorder the workflow to improve before continuing.`);
+  }
+
+  function advanceGuidedSimulation(question: AssessmentQuestion) {
+    const actions = question.simulation?.guidedActions ?? [];
+    const currentStep = guidedProgress[question.id] ?? 0;
+    const currentAction = actions[currentStep];
+    const promptValue = simulationPrompts[question.id]?.trim() ?? "";
+
+    if (currentAction?.action.includes("TYPE") && promptValue.length < 4) {
+      setSimulationFeedback("Enter a meaningful prompt before continuing.");
+      return;
+    }
+
+    const nextCompletedActions = Math.min(currentStep + 1, actions.length);
+    const score = calculateGuidedScore(question, nextCompletedActions);
+    const nextSimulationScores = {
+      ...simulationScores,
+      [question.id]: Math.max(simulationScores[question.id] ?? 0, Number(score.toFixed(2))),
+    };
+    setSimulationScoresState(nextSimulationScores);
+
+    if (currentStep >= actions.length - 1) {
+      completeSimulationTask(
+        question,
+        question.score,
+        `${question.recommendedModule ?? "Guided task"} completed. Full guided score recorded (${question.score}/${question.score}).`,
+      );
+      return;
+    }
+
+    const nextGuidedProgress = { ...guidedProgress, [question.id]: nextCompletedActions };
+    setGuidedProgressState(nextGuidedProgress);
+    setSimulationFeedback(actions[currentStep + 1]?.instruction ?? "Continue the guided action.");
+    persistAttempt({ guidedProgress: nextGuidedProgress, simulationScores: nextSimulationScores });
+  }
+
+  function resetAttempt() {
+    clearSavedExamAttempt();
+    setPhaseState("briefing");
+    setQuestionIndexState(0);
+    setMissionIndexState(0);
+    setAnswersState({});
+    setFlaggedState({});
+    setTimerMinutesState(90);
+    setActiveSimulationIdState(simulationQuestionBank[0]?.id ?? "");
+    setSimulationCompletedState({});
+    setSimulationScoresState({});
+    setHotspotAttemptsState({});
+    setDragPlacementsState({});
+    setSimulationAttemptLogState([]);
+    setStepOrdersState(defaultStepOrders);
+    setGuidedProgressState({});
+    setSimulationPromptsState({});
+    setAutosaveText("New attempt");
+    setRulesAccepted(false);
+    setSimulationFeedback("Complete each task. The simulator records partial marks automatically.");
+  }
 
   return (
-    <div className="space-y-5">
+    <div className={classNames("space-y-5", phase === "knowledge" || phase === "mission" ? "pb-20 sm:pb-0" : null)}>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -1018,7 +1457,107 @@ function ExamView({
           <StatusPill icon={Layers3} label={`${answeredCount}/${totalDemoItems} items`} />
           <StatusPill icon={ShieldCheck} label={phase === "result" ? "Submitted" : "In progress"} />
         </div>
+        <div className="mt-4 flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Auto-save / Resume</p>
+            <p className="mt-1 text-sm font-bold text-slate-700">
+              {autosaveText} · {phase === "briefing" ? "Ready to start" : `Resume at ${phase}`}
+            </p>
+          </div>
+          <button
+            onClick={resetAttempt}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700"
+          >
+            Start fresh
+          </button>
+        </div>
       </section>
+
+      {phase !== "briefing" && phase !== "result" && (
+        <section className="sticky top-0 z-30 -mx-4 border-y border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Section Progress</p>
+              <p className="text-sm font-black text-slate-950">
+                {phase === "knowledge"
+                  ? `A · ${questionIndex + 1}/${knowledgeQuestions.length}`
+                  : phase === "simulation"
+                    ? `B · ${completedSimulation}/${simulationQuestionBank.length} tasks`
+                    : phase === "mission"
+                      ? `C · ${missionIndex + 1}/${missionQuestions.length}`
+                      : `Review · ${answeredCount}/${totalDemoItems}`}
+              </p>
+            </div>
+            {(phase === "knowledge" || phase === "mission") && (
+              <button
+                onClick={() => setNavigatorOpen(true)}
+                className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white"
+              >
+                Questions
+              </button>
+            )}
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-cyan-600"
+              style={{
+                width: `${Math.round((answeredCount / Math.max(totalDemoItems, 1)) * 100)}%`,
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      {navigatorOpen && (phase === "knowledge" || phase === "mission") && (
+        <section className="fixed inset-0 z-50 bg-slate-950/40 md:hidden">
+          <div className="absolute inset-x-0 bottom-0 max-h-[76vh] overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Question Drawer</p>
+                <h3 className="text-lg font-black text-slate-950">
+                  {phase === "knowledge" ? "Section A Questions" : "Section C Missions"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setNavigatorOpen(false)}
+                className="grid size-10 place-items-center rounded-lg bg-slate-100 text-slate-700"
+                aria-label="Close question drawer"
+              >
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-5 gap-2">
+              {(phase === "knowledge" ? knowledgeQuestions : missionQuestions).map((question, index) => (
+                <button
+                  key={question.id}
+                  onClick={() => {
+                    if (phase === "knowledge") updateQuestionIndex(index);
+                    else updateMissionIndex(index);
+                    setNavigatorOpen(false);
+                  }}
+                  className={classNames(
+                    "grid size-11 place-items-center rounded-lg text-sm font-black",
+                    (phase === "knowledge" ? questionIndex : missionIndex) === index
+                      ? "bg-slate-950 text-white"
+                      : flagged[question.id]
+                        ? "bg-amber-100 text-amber-700"
+                        : answers[question.id]
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-500",
+                  )}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-xs font-bold text-slate-500">
+              <span className="rounded-lg bg-emerald-50 p-2 text-center text-emerald-700">Answered</span>
+              <span className="rounded-lg bg-amber-50 p-2 text-center text-amber-700">Flagged</span>
+              <span className="rounded-lg bg-slate-50 p-2 text-center">Unanswered</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {phase === "briefing" && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -1044,8 +1583,9 @@ function ExamView({
           </label>
           <button
             onClick={() => {
-              setPhase("knowledge");
-              setTimerMinutes(89);
+              setTimerMinutesState(89);
+              persistAttempt({ phase: "knowledge", timerMinutes: 89 });
+              setPhaseState("knowledge");
             }}
             disabled={!rulesAccepted}
             className={classNames(
@@ -1060,7 +1600,7 @@ function ExamView({
 
       {phase === "knowledge" && (
         <section className="grid gap-4 xl:grid-cols-[0.75fr_1.25fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:block">
             <p className="text-sm font-semibold text-slate-500">Section A Navigator</p>
             <p className="mt-1 text-sm font-bold text-slate-950">
               Question {questionIndex + 1} of {knowledgeQuestions.length}
@@ -1069,7 +1609,7 @@ function ExamView({
               {knowledgeQuestions.map((question, index) => (
                 <button
                   key={question.id}
-                  onClick={() => setQuestionIndex(index)}
+                  onClick={() => updateQuestionIndex(index)}
                   className={classNames(
                     "grid size-10 place-items-center rounded-lg text-sm font-black",
                     questionIndex === index
@@ -1088,23 +1628,23 @@ function ExamView({
           </div>
           <QuestionCard
             section={`Question ${questionIndex + 1}`}
-            title={currentQuestion.title}
+            title="Bahagian A · MCQ"
             prompt={currentQuestion.prompt}
-            meta={currentQuestion.meta}
-            options={currentQuestion.options}
+            meta={`${currentQuestion.subject ?? "General"} · Domain: ${currentQuestion.domainLabel ?? currentQuestion.competency}`}
+            options={currentQuestion.options ?? []}
             selectedAnswer={answers[currentQuestion.id] ?? null}
-            onSelect={(answer) => setAnswers((current) => ({ ...current, [currentQuestion.id]: answer }))}
+            onSelect={(answer) => saveAnswer(currentQuestion.id, answer)}
           />
-          <div className="xl:col-span-2 grid grid-cols-2 gap-3">
+          <div className="hidden grid-cols-2 gap-3 sm:grid xl:col-span-2">
             <button
-              onClick={() => setQuestionIndex((index) => Math.max(index - 1, 0))}
+              onClick={() => updateQuestionIndex(questionIndex - 1)}
               className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-bold"
             >
               <ArrowLeft size={17} />
               Previous
             </button>
             <button
-              onClick={() => setFlagged((current) => ({ ...current, [currentQuestion.id]: !current[currentQuestion.id] }))}
+              onClick={() => toggleFlag(currentQuestion.id)}
               className="col-span-2 flex h-11 items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 text-sm font-bold text-amber-800"
             >
               <Flag size={17} />
@@ -1112,8 +1652,8 @@ function ExamView({
             </button>
             <button
               onClick={() => {
-                if (questionIndex === knowledgeQuestions.length - 1) setPhase("simulation");
-                else setQuestionIndex((index) => index + 1);
+                if (questionIndex === knowledgeQuestions.length - 1) goToPhase("simulation");
+                else updateQuestionIndex(questionIndex + 1);
               }}
               className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
             >
@@ -1124,6 +1664,20 @@ function ExamView({
         </section>
       )}
 
+      {phase === "knowledge" && (
+        <MobileExamControls
+          primaryLabel={questionIndex === knowledgeQuestions.length - 1 ? "Section B" : "Next"}
+          secondaryLabel="Previous"
+          middleLabel={flagged[currentQuestion.id] ? "Unflag" : "Flag"}
+          onPrevious={() => updateQuestionIndex(questionIndex - 1)}
+          onMiddle={() => toggleFlag(currentQuestion.id)}
+          onNext={() => {
+            if (questionIndex === knowledgeQuestions.length - 1) goToPhase("simulation");
+            else updateQuestionIndex(questionIndex + 1);
+          }}
+        />
+      )}
+
       {phase === "simulation" && (
         <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -1132,7 +1686,7 @@ function ExamView({
                 <p className="text-sm font-semibold text-slate-500">Section B</p>
                 <h3 className="text-xl font-black">Digital Performance Tasks</h3>
               </div>
-              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">{completedSimulation}/5 tasks</span>
+              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">{sectionBScore}/40 marks</span>
             </div>
 
             <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
@@ -1145,7 +1699,7 @@ function ExamView({
                 <p className="text-xs font-semibold">EasiClass Simulator</p>
               </div>
               <div className="grid min-h-[390px] bg-white p-4">
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-5">
                   {tools.map((tool) => (
                     <button
                       key={tool}
@@ -1159,54 +1713,81 @@ function ExamView({
                     </button>
                   ))}
                 </div>
-                <div className="mt-4 grid gap-3">
-                  <SimulationTask
-                    done={coursewareDone}
-                    title="Generate AI Courseware"
-                    detail={simulationSteps.join(" → ")}
-                    onDone={() => {
-                      setCoursewareDone(true);
-                      setSimulationFeedback("Correct order recorded. Rubric: full sequence = 2 marks.");
-                    }}
-                  />
-                  <SimulationTask
-                    done={aiImageDone}
-                    title="AI Image"
-                    detail="Click Media, then enter a prompt for Gunung Kinabalu"
-                    onDone={() => {
-                      setAiImageDone(true);
-                      setSimulationFeedback("Partial marks recorded: Media click = 1, prompt entry = 1.");
-                    }}
-                  />
-                  <SimulationTask
-                    done={activityDone}
-                    title="AI Activity"
-                    detail="Upload textbook snapshot and generate an interactive activity"
-                    onDone={() => {
-                      setActivityDone(true);
-                      setSimulationFeedback("Partial marks recorded: upload snapshot = 1, generate activity = 1.");
-                    }}
-                  />
-                  <SimulationTask
-                    done={quizDone}
-                    title="Smart Quiz"
-                    detail={smartQuizSteps.join(" → ")}
-                    onDone={() => {
-                      setQuizDone(true);
-                      setSimulationFeedback("Smart Quiz workflow accepted. Rubric: correct sequence = 2 marks.");
-                    }}
-                  />
-                  <SimulationTask
-                    done={roleTalkDone}
-                    title="Role Talk"
-                    detail={`${selectedTool} used to turn a textbook dialogue into speaking practice`}
-                    onDone={() => {
-                      setRoleTalkDone(true);
-                      setSimulationFeedback("Partial marks recorded: upload dialog = 1, generate Role Talk = 1.");
-                    }}
-                  />
+                <div className="mt-4 grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
+                  <div className="space-y-2">
+                    {simulationQuestionBank.map((question, index) => (
+                      <button
+                        key={question.id}
+                        onClick={() => selectSimulation(question.id)}
+                        className={classNames(
+                          "flex w-full items-center gap-3 rounded-xl border p-3 text-left",
+                          activeSimulation?.id === question.id
+                            ? "border-slate-950 bg-slate-950 text-white"
+                            : simulationCompleted[question.id]
+                              ? "border-emerald-200 bg-emerald-50 text-slate-950"
+                              : "border-slate-200 bg-slate-50 text-slate-950",
+                        )}
+                      >
+                        <span className={classNames(
+                          "grid size-8 shrink-0 place-items-center rounded-lg text-xs font-black",
+                          activeSimulation?.id === question.id ? "bg-white text-slate-950" : "bg-white text-slate-600",
+                        )}>
+                          {index + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black">{question.recommendedModule}</span>
+                          <span className={classNames("mt-0.5 block text-xs font-semibold", activeSimulation?.id === question.id ? "text-slate-300" : "text-slate-500")}>
+                            {simulationCompleted[question.id]
+                              ? `Completed · ${simulationScores[question.id] ?? question.score}/${question.score}`
+                              : `${simulationScores[question.id] ?? 0}/${question.score} · ${
+                                  question.type === "step-order"
+                                    ? "Arrange workflow"
+                                    : question.type === "hotspot"
+                                      ? "Hotspot click"
+                                      : question.type === "drag-drop"
+                                        ? "Drag-drop"
+                                        : "Guided actions"
+                                }`}
+                          </span>
+                        </span>
+                        {simulationCompleted[question.id] && <CheckCircle2 className="shrink-0 text-emerald-500" size={18} />}
+                      </button>
+                    ))}
+                  </div>
+
+                  {activeSimulation && (
+                    <SimulationWorkbench
+                      question={activeSimulation}
+                      completed={Boolean(simulationCompleted[activeSimulation.id])}
+                      score={simulationScores[activeSimulation.id] ?? 0}
+                      hotspotAttempt={hotspotAttempts[activeSimulation.id] ?? ""}
+                      dragPlacement={dragPlacements[activeSimulation.id] ?? ""}
+                      orderIds={stepOrders[activeSimulation.id] ?? []}
+                      progress={guidedProgress[activeSimulation.id] ?? 0}
+                      promptValue={simulationPrompts[activeSimulation.id] ?? ""}
+                      selectedTool={selectedTool}
+                      onHotspotClick={(hotspotId) => handleHotspotClick(activeSimulation, hotspotId)}
+                      onDragDrop={(zoneId, itemId) => handleDragDrop(activeSimulation, zoneId, itemId)}
+                      onPromptChange={(value) => {
+                        const nextPrompts = { ...simulationPrompts, [activeSimulation.id]: value };
+                        setSimulationPromptsState(nextPrompts);
+                        persistAttempt({ simulationPrompts: nextPrompts });
+                      }}
+                      onMoveStep={(index, direction) => moveSimulationStep(activeSimulation.id, index, direction)}
+                      onCheckOrder={() => checkSimulationOrder(activeSimulation)}
+                      onGuidedAction={() => advanceGuidedSimulation(activeSimulation)}
+                    />
+                  )}
                 </div>
                 <p className="mt-4 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{simulationFeedback}</p>
+                <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">Attempt log</p>
+                  <div className="mt-2 space-y-1">
+                    {(simulationAttemptLog.length > 0 ? simulationAttemptLog : ["No simulation attempts recorded yet."]).map((entry) => (
+                      <p key={entry} className="text-xs font-semibold leading-5 text-slate-600">{entry}</p>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1216,14 +1797,14 @@ function ExamView({
             <ExamCard icon={TabletSmartphone} section="Section B" title="Digital Simulation" detail="step order, hotspot, upload, generation scoring" score={`${sectionBScore}/40`} />
             <ExamCard icon={ClipboardList} section="Section C" title="Mission Assessment" detail={`${missionAnswered}/${missionQuestions.length} mission scenarios`} score={`${sectionCScore}/60`} />
             <button
-              onClick={() => setPhase("mission")}
-              disabled={completedSimulation !== simulationTasks.length}
+              onClick={() => goToPhase("mission")}
+              disabled={completedSimulation !== simulationQuestionBank.length}
               className={classNames(
                 "flex h-12 w-full items-center justify-center rounded-lg text-sm font-black transition",
-                completedSimulation === simulationTasks.length ? "bg-slate-950 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
+                completedSimulation === simulationQuestionBank.length ? "bg-slate-950 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
               )}
             >
-              {completedSimulation === simulationTasks.length ? "Continue to Section C" : "Complete Section B tasks"}
+              {completedSimulation === simulationQuestionBank.length ? "Continue to Section C" : "Complete Section B tasks"}
             </button>
           </div>
         </section>
@@ -1231,7 +1812,7 @@ function ExamView({
 
       {phase === "mission" && (
         <section className="grid gap-4 xl:grid-cols-[0.75fr_1.25fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:block">
             <p className="text-sm font-semibold text-slate-500">Section C Navigator</p>
             <p className="mt-1 text-sm font-bold text-slate-950">
               Mission {missionIndex + 1} of {missionQuestions.length}
@@ -1240,7 +1821,7 @@ function ExamView({
               {missionQuestions.map((question, index) => (
                 <button
                   key={question.id}
-                  onClick={() => setMissionIndex(index)}
+                  onClick={() => updateMissionIndex(index)}
                   className={classNames(
                     "grid size-10 place-items-center rounded-lg text-sm font-black",
                     missionIndex === index
@@ -1257,16 +1838,16 @@ function ExamView({
           </div>
           <QuestionCard
             section={`Mission ${missionIndex + 1}`}
-            title={currentMission.title}
+            title={currentMission.domainLabel ?? "Bahagian C · Mission Scenario"}
             prompt={currentMission.prompt}
-            meta={currentMission.meta}
-            options={currentMission.options}
+            meta={`${currentMission.subject ?? "Professional judgement"} · ${currentMission.score} marks`}
+            options={currentMission.options ?? []}
             selectedAnswer={answers[currentMission.id] ?? null}
-            onSelect={(answer) => setAnswers((current) => ({ ...current, [currentMission.id]: answer }))}
+            onSelect={(answer) => saveAnswer(currentMission.id, answer)}
           />
-          <div className="xl:col-span-2 grid grid-cols-2 gap-3">
+          <div className="hidden grid-cols-2 gap-3 sm:grid xl:col-span-2">
             <button
-              onClick={() => setMissionIndex((index) => Math.max(index - 1, 0))}
+              onClick={() => updateMissionIndex(missionIndex - 1)}
               className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-bold"
             >
               <ArrowLeft size={17} />
@@ -1274,8 +1855,8 @@ function ExamView({
             </button>
             <button
               onClick={() => {
-                if (missionIndex === missionQuestions.length - 1) setPhase("review");
-                else setMissionIndex((index) => index + 1);
+                if (missionIndex === missionQuestions.length - 1) goToPhase("review");
+                else updateMissionIndex(missionIndex + 1);
               }}
               className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
             >
@@ -1286,6 +1867,20 @@ function ExamView({
         </section>
       )}
 
+      {phase === "mission" && (
+        <MobileExamControls
+          primaryLabel={missionIndex === missionQuestions.length - 1 ? "Review" : "Next"}
+          secondaryLabel="Previous"
+          middleLabel="Questions"
+          onPrevious={() => updateMissionIndex(missionIndex - 1)}
+          onMiddle={() => setNavigatorOpen(true)}
+          onNext={() => {
+            if (missionIndex === missionQuestions.length - 1) goToPhase("review");
+            else updateMissionIndex(missionIndex + 1);
+          }}
+        />
+      )}
+
       {phase === "review" && (
         <section className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
@@ -1293,33 +1888,77 @@ function ExamView({
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <AdminMetric icon={CheckCircle2} label="Answered" value={`${knowledgeAnswered + missionAnswered}/${knowledgeQuestions.length + missionQuestions.length}`} />
               <AdminMetric icon={Flag} label="Flagged" value={String(Object.values(flagged).filter(Boolean).length)} />
-              <AdminMetric icon={TabletSmartphone} label="Simulation" value={`${completedSimulation}/5`} />
+              <AdminMetric icon={TabletSmartphone} label="Simulation" value={`${completedSimulation}/${simulationQuestionBank.length}`} />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {([
+                ["all", "All"],
+                ["flagged", "Flagged"],
+                ["unanswered", "Unanswered"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setReviewFilter(value)}
+                  className={classNames(
+                    "h-10 rounded-lg text-xs font-black",
+                    reviewFilter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             <div className="mt-4 space-y-2">
-              {[...knowledgeQuestions, ...missionQuestions].map((question, index) => (
+              {reviewQuestions.map((question) => {
+                const index = question.section === "A"
+                  ? knowledgeQuestions.findIndex((item) => item.id === question.id)
+                  : knowledgeQuestions.length + missionQuestions.findIndex((item) => item.id === question.id);
+
+                return (
                 <button
                   key={question.id}
                   onClick={() => {
                     if (question.section === "A") {
-                      setQuestionIndex(index);
-                      setPhase("knowledge");
+                      updateQuestionIndex(index);
+                      goToPhase("knowledge");
                     } else {
-                      setMissionIndex(index - knowledgeQuestions.length);
-                      setPhase("mission");
+                      updateMissionIndex(index - knowledgeQuestions.length);
+                      goToPhase("mission");
                     }
                   }}
                   className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left text-sm font-bold"
                 >
                   <span>{question.section === "A" ? "Question" : "Mission"} {question.section === "A" ? index + 1 : index - knowledgeQuestions.length + 1}</span>
                   <span className={answers[question.id] ? "text-emerald-700" : "text-rose-700"}>
-                    {answers[question.id] ? "Answered" : "Unanswered"}
+                    {flagged[question.id] ? "Flagged" : answers[question.id] ? "Answered" : "Unanswered"}
+                  </span>
+                </button>
+                );
+              })}
+              {reviewQuestions.length === 0 && (
+                <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
+                  No items in this filter.
+                </p>
+              )}
+              {simulationQuestionBank.map((question, index) => (
+                <button
+                  key={question.id}
+                  onClick={() => {
+                    selectSimulation(question.id);
+                    goToPhase("simulation");
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left text-sm font-bold"
+                >
+                  <span>Simulation Task {index + 1}</span>
+                  <span className={simulationCompleted[question.id] ? "text-emerald-700" : "text-amber-700"}>
+                    {simulationScores[question.id] ?? 0}/{question.score} marks
                   </span>
                 </button>
               ))}
             </div>
           </div>
           <button
-            onClick={() => setPhase("result")}
+            onClick={() => goToPhase("result")}
             disabled={!canSubmit}
             className={classNames(
               "h-12 w-full rounded-lg text-sm font-black",
@@ -1339,7 +1978,8 @@ function ExamView({
           sectionAScore={sectionAScore}
           sectionBScore={sectionBScore}
           sectionCScore={sectionCScore}
-          onRetake={() => setPhase("briefing")}
+          competencyReport={competencyReport}
+          onRetake={resetAttempt}
         />
       )}
     </div>
@@ -1375,21 +2015,293 @@ function BriefingRow({
   );
 }
 
-function SimulationTask({ done, title, detail, onDone }: { done: boolean; title: string; detail: string; onDone: () => void }) {
+function MobileExamControls({
+  primaryLabel,
+  secondaryLabel,
+  middleLabel,
+  onPrevious,
+  onMiddle,
+  onNext,
+}: {
+  primaryLabel: string;
+  secondaryLabel: string;
+  middleLabel: string;
+  onPrevious: () => void;
+  onMiddle: () => void;
+  onNext: () => void;
+}) {
   return (
-    <button
-      onClick={onDone}
-      className={classNames(
-        "flex items-start gap-3 rounded-lg border p-4 text-left",
-        done ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50",
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur sm:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-[1fr_auto_1fr] gap-2">
+        <button onClick={onPrevious} className="h-12 rounded-lg border border-slate-200 bg-white text-sm font-black text-slate-700">
+          {secondaryLabel}
+        </button>
+        <button onClick={onMiddle} className="h-12 rounded-lg bg-slate-100 px-4 text-sm font-black text-slate-700">
+          {middleLabel}
+        </button>
+        <button onClick={onNext} className="h-12 rounded-lg bg-slate-950 text-sm font-black text-white">
+          {primaryLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SimulationWorkbench({
+  question,
+  completed,
+  score,
+  hotspotAttempt,
+  dragPlacement,
+  orderIds,
+  progress,
+  promptValue,
+  selectedTool,
+  onHotspotClick,
+  onDragDrop,
+  onPromptChange,
+  onMoveStep,
+  onCheckOrder,
+  onGuidedAction,
+}: {
+  question: AssessmentQuestion;
+  completed: boolean;
+  score: number;
+  hotspotAttempt: string;
+  dragPlacement: string;
+  orderIds: string[];
+  progress: number;
+  promptValue: string;
+  selectedTool: string;
+  onHotspotClick: (hotspotId: string) => void;
+  onDragDrop: (zoneId: string, itemId: string) => void;
+  onPromptChange: (value: string) => void;
+  onMoveStep: (index: number, direction: "up" | "down") => void;
+  onCheckOrder: () => void;
+  onGuidedAction: () => void;
+}) {
+  const stepOptions = question.simulation?.stepOptions ?? [];
+  const orderedSteps = orderIds
+    .map((stepId) => stepOptions.find((step) => step.id === stepId))
+    .filter((step): step is { id: string; label: string } => Boolean(step));
+  const guidedActions = question.simulation?.guidedActions ?? [];
+  const currentAction = guidedActions[Math.min(progress, Math.max(guidedActions.length - 1, 0))];
+  const needsPrompt = currentAction?.action.includes("TYPE");
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            {question.type === "step-order"
+              ? "Step ordering"
+              : question.type === "drag-drop"
+                ? "Drag and drop"
+                : question.type === "hotspot"
+                  ? "Hotspot click"
+                  : "Guided simulator"}
+          </p>
+          <h4 className="mt-1 text-base font-black text-slate-950">{question.recommendedModule}</h4>
+        </div>
+        <span className={classNames(
+          "rounded-full px-2.5 py-1 text-xs font-black",
+          completed ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600",
+        )}>
+          {completed ? "Completed" : `${score}/${question.score} marks`}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{question.prompt}</p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-cyan-600"
+          style={{ width: `${Math.min(100, Math.round((score / Math.max(question.score, 1)) * 100))}%` }}
+        />
+      </div>
+
+      {question.type === "step-order" ? (
+        <div className="mt-4 space-y-2">
+          {orderedSteps.map((step, index) => (
+            <div key={step.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-xs font-black text-slate-600">
+                {index + 1}
+              </span>
+              <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-slate-700">{step.label}</p>
+              <button
+                onClick={() => onMoveStep(index, "up")}
+                disabled={index === 0 || completed}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-black disabled:opacity-40"
+              >
+                Up
+              </button>
+              <button
+                onClick={() => onMoveStep(index, "down")}
+                disabled={index === orderedSteps.length - 1 || completed}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-black disabled:opacity-40"
+              >
+                Down
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={onCheckOrder}
+            disabled={completed}
+            className={classNames(
+              "mt-2 h-11 w-full rounded-lg text-sm font-black",
+              completed ? "bg-emerald-100 text-emerald-700" : "bg-slate-950 text-white",
+            )}
+          >
+            {completed ? "Sequence accepted" : "Check sequence"}
+          </button>
+        </div>
+      ) : question.type === "hotspot" ? (
+        <div className="mt-4 space-y-3">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 text-white">
+            <div className="flex items-center justify-between bg-[#062a6f] px-3 py-2">
+              <p className="text-xs font-black">EasiClass Media Panel</p>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-bold">Click the correct hotspot</span>
+            </div>
+            <div className="grid gap-2 p-3 sm:grid-cols-2">
+              {[
+                { id: "whiteboard", label: "Whiteboard Tools", hint: "Marker, Eraser, Shape" },
+                { id: "ai-image-generator", label: "AI Image Generator", hint: "Generate image from prompt" },
+                { id: "smart-quiz", label: "Smart Quiz", hint: "Generate assessment items" },
+                { id: "qr-share", label: "QR Share", hint: "Share notes to students" },
+              ].map((hotspot) => (
+                <button
+                  key={hotspot.id}
+                  onClick={() => onHotspotClick(hotspot.id)}
+                  disabled={completed}
+                  className={classNames(
+                    "rounded-lg border p-3 text-left transition",
+                    hotspotAttempt === hotspot.id
+                      ? hotspot.id === "ai-image-generator"
+                        ? "border-emerald-300 bg-emerald-500/20"
+                        : "border-amber-300 bg-amber-500/20"
+                      : "border-white/10 bg-white/10 hover:bg-white/15",
+                  )}
+                >
+                  <span className="block text-sm font-black">{hotspot.label}</span>
+                  <span className="mt-1 block text-xs font-semibold text-slate-300">{hotspot.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="rounded-lg bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-800">
+            Task: open Media and select AI Image Generator for Gunung Kinabalu visual generation.
+          </p>
+        </div>
+      ) : question.type === "drag-drop" ? (
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="rounded-xl bg-slate-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Drag resources</p>
+              <div className="mt-3 space-y-2">
+                {(question.simulation?.dragItems ?? []).map((item) => (
+                  <div
+                    key={item.id}
+                    draggable={!completed}
+                    onDragStart={(event) => event.dataTransfer.setData("text/plain", item.id)}
+                    className={classNames(
+                      "cursor-grab rounded-lg border border-slate-200 bg-white p-3 text-sm font-black text-slate-700 active:cursor-grabbing",
+                      dragPlacement.startsWith(item.id) ? "ring-2 ring-cyan-300" : null,
+                    )}
+                  >
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl bg-slate-950 p-3 text-white">
+              <p className="text-xs font-black uppercase tracking-wide text-cyan-200">Lesson flow drop zones</p>
+              <div className="mt-3 grid gap-2">
+                {(question.simulation?.dropZones ?? []).map((zone) => (
+                  <div
+                    key={zone.id}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      onDragDrop(zone.id, event.dataTransfer.getData("text/plain"));
+                    }}
+                    className={classNames(
+                      "min-h-20 rounded-lg border border-dashed p-3",
+                      dragPlacement.endsWith(zone.id)
+                        ? zone.accepts === dragPlacement.split(":")[0]
+                          ? "border-emerald-300 bg-emerald-500/20"
+                          : "border-amber-300 bg-amber-500/20"
+                        : "border-white/20 bg-white/10",
+                    )}
+                  >
+                    <p className="text-sm font-black">{zone.label}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-300">
+                      {dragPlacement.endsWith(zone.id) ? `Dropped: ${dragPlacement.split(":")[0]}` : "Drop item here"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <p className="rounded-lg bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-800">
+            Task: drag the textbook snapshot into AI Activity / OCR Converter to convert a physical question into an interactive activity.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl bg-slate-950 p-4 text-white">
+            <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Current tool</p>
+            <p className="mt-1 text-lg font-black">{selectedTool}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              {currentAction?.instruction ?? "All guided actions completed."}
+            </p>
+          </div>
+          {needsPrompt && (
+            <label className="block">
+              <span className="text-sm font-bold text-slate-700">Prompt input</span>
+              <input
+                value={promptValue}
+                onChange={(event) => onPromptChange(event.target.value)}
+                placeholder="Gunung Kinabalu"
+                className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-slate-950"
+              />
+            </label>
+          )}
+          <div className="grid gap-2">
+            {guidedActions.map((action, index) => (
+              <div
+                key={action.action}
+                className={classNames(
+                  "flex items-start gap-2 rounded-lg p-2 text-sm",
+                  index < progress || completed
+                    ? "bg-emerald-50 text-emerald-800"
+                    : index === progress
+                      ? "bg-cyan-50 text-cyan-800"
+                      : "bg-slate-50 text-slate-500",
+                )}
+              >
+                <CheckCircle2 size={17} className={classNames("mt-0.5 shrink-0", index < progress || completed ? "text-emerald-600" : "text-slate-300")} />
+                <span className="font-semibold leading-5">{action.instruction}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={onGuidedAction}
+            disabled={completed}
+            className={classNames(
+              "h-11 w-full rounded-lg text-sm font-black",
+              completed ? "bg-emerald-100 text-emerald-700" : "bg-slate-950 text-white",
+            )}
+          >
+            {completed ? "Task completed" : progress >= guidedActions.length - 1 ? "Complete task" : "Perform next action"}
+          </button>
+        </div>
       )}
-    >
-      {done ? <CheckCircle2 className="shrink-0 text-emerald-600" size={22} /> : <XCircle className="shrink-0 text-slate-400" size={22} />}
-      <span>
-        <span className="block font-black">{title}</span>
-        <span className="mt-1 block text-sm leading-6 text-slate-600">{detail}</span>
-      </span>
-    </button>
+
+      {question.rubric && (
+        <div className="mt-4 rounded-xl bg-amber-50 p-3">
+          <p className="text-xs font-black uppercase tracking-wide text-amber-700">Rubric</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">{question.rubric.join(" ")}</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1400,6 +2312,7 @@ function ResultView({
   sectionAScore,
   sectionBScore,
   sectionCScore,
+  competencyReport,
   onRetake,
 }: {
   score: number;
@@ -1408,9 +2321,11 @@ function ResultView({
   sectionAScore: number;
   sectionBScore: number;
   sectionCScore: number;
+  competencyReport: CompetencyResult[];
   onRetake: () => void;
 }) {
   const passed = percentage >= 50;
+  const weakestCompetency = competencyReport[0];
 
   return (
     <section className="space-y-5">
@@ -1428,11 +2343,13 @@ function ResultView({
         <h3 className="text-xl font-black">Next Action</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {passed
-            ? "Certificate is ready. Download the PDF or copy the public verification link for school submission."
+            ? weakestCompetency
+              ? `Certificate is ready. Strongest next step: improve ${weakestCompetency.label} with the recommended module below.`
+              : "Certificate is ready. Download the PDF or copy the public verification link for school submission."
             : `Retake opens on ${candidate.nextRetake}. Complete the recommended learning modules first.`}
         </p>
       </section>
-      <CompetencyPanel title="Question-level Competency Report" />
+      <CompetencyPanel title="Question-level Competency Report" results={competencyReport} />
       <div className="grid gap-3 md:grid-cols-3">
         <Link href="/verify/SME-2026-000142" className="text-left">
           <ActionTile icon={QrCode} title="Verify Certificate" label="public QR verification" />
@@ -1506,6 +2423,10 @@ function QuestionCard({
 function CertificateView({ percentage, totalScore }: { percentage: number; totalScore: number }) {
   const [certificateNotice, setCertificateNotice] = useState("Certificate is ready for secure download.");
   const verificationLink = "/verify/SME-2026-000142";
+  const isPassedTemplate = percentage >= 70;
+  const certificateSubtitle = isPassedTemplate
+    ? "MAXHUB Certified Educator (Passed)"
+    : "Digital Classroom Practitioner (Participant)";
 
   return (
     <div className="space-y-5">
@@ -1533,7 +2454,7 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
               <h2 className="mt-2 text-3xl font-black tracking-tight md:text-5xl">{candidate.name}</h2>
               <p className="mt-2 text-sm text-slate-500">for successfully completing the</p>
               <p className="mt-4 text-2xl font-black uppercase tracking-[0.16em] text-slate-950">Sabah MAXHUB Educator</p>
-              <p className="mt-1 text-xl font-semibold text-slate-500">MAXHUB Certified Educator (Passed)</p>
+              <p className="mt-1 text-xl font-semibold text-slate-500">{certificateSubtitle}</p>
             </div>
             <Award className="shrink-0 text-amber-500" size={42} />
           </div>
@@ -1557,12 +2478,13 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
             <Image src="/brand/samasama-works-logo.jpg" alt="Samasama Works" width={1280} height={720} className="hidden h-12 w-36 object-contain sm:block" />
             <Link
               href="/verify/SME-2026-000142"
-              className="grid size-20 place-items-center rounded-lg border border-slate-300 bg-white transition hover:bg-slate-50"
+              className="grid size-20 place-items-center rounded-lg border border-slate-300 bg-white text-center transition hover:bg-slate-50"
               aria-label="Verify certificate SME-2026-000142"
             >
               <QrCode size={48} />
             </Link>
           </div>
+          <p className="mt-3 text-right text-xs font-bold text-slate-500">QR verifies /verify/SME-2026-000142</p>
           <div className="mt-7 h-2 rounded-full bg-gradient-to-r from-blue-700 via-sky-500 to-red-500" />
         </div>
       </section>
@@ -1579,10 +2501,12 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
           <CertificateTemplatePreview
             title="Practitioner Participant"
             src="/brand/certificate-practitioner-template.jpg"
+            active={!isPassedTemplate}
           />
           <CertificateTemplatePreview
             title="Certified Educator Passed"
             src="/brand/certificate-certified-template.jpg"
+            active={isPassedTemplate}
           />
         </div>
       </section>
@@ -1617,12 +2541,15 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
   );
 }
 
-function CertificateTemplatePreview({ title, src }: { title: string; src: string }) {
+function CertificateTemplatePreview({ title, src, active }: { title: string; src: string; active: boolean }) {
   return (
-    <div className="min-w-[82%] snap-start overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:min-w-[420px] md:min-w-0">
+    <div className={classNames(
+      "min-w-[82%] snap-start overflow-hidden rounded-lg border bg-slate-50 sm:min-w-[420px] md:min-w-0",
+      active ? "border-emerald-400 ring-2 ring-emerald-100" : "border-slate-200",
+    )}>
       <Image src={src} alt={title} width={1280} height={905} className="aspect-[1280/905] w-full object-cover" />
       <div className="p-3">
-        <p className="text-sm font-black text-slate-950">{title}</p>
+        <p className="text-sm font-black text-slate-950">{active ? "Active · " : ""}{title}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">Reference layout for generated certificate PDF.</p>
       </div>
     </div>
@@ -1669,6 +2596,129 @@ function AdminView({
     "Retake Pack": "Draft",
     "PPD Training Diagnostic": "Review",
   });
+  const [bankQuestions, setBankQuestions] = useState<EditableQuestion[]>(initialEditableQuestions);
+  const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>(initialAuditEntries);
+  const [selectedQuestionId, setSelectedQuestionId] = useState(initialEditableQuestions[0]?.id ?? "");
+  const [draftVersion, setDraftVersion] = useState("v1.1 Draft");
+  const draftItems = bankQuestions.filter((question) => question.status === "draft").length;
+  const reviewItems = bankQuestions.filter((question) => question.status === "review").length;
+  const publishedItems = bankQuestions.filter((question) => question.status === "published").length;
+  const publishChecklist = buildPublishChecklist(bankQuestions, draftItems, reviewItems);
+
+  function addAuditEntry(action: string, detail: string, actor = "Super Admin") {
+    setAuditEntries((current) => {
+      const latestNumber = Number(current[0]?.id.replace("AUD-", "")) || current.length;
+
+      return [
+        {
+          id: `AUD-${String(latestNumber + 1).padStart(3, "0")}`,
+          action,
+          actor,
+          time: "Now",
+          detail,
+        },
+        ...current,
+      ].slice(0, 10);
+    });
+  }
+
+  function saveQuestion(question: EditableQuestion) {
+    setBankQuestions((current) => {
+      const exists = current.some((item) => item.id === question.id);
+      const nextQuestion = {
+        ...question,
+        status: "draft" as const,
+        version: "v1.1",
+        lastEdited: "Just now",
+      };
+
+      return exists ? current.map((item) => (item.id === question.id ? nextQuestion : item)) : [nextQuestion, ...current];
+    });
+    setSelectedQuestionId(question.id);
+    setQuestionCount((count) => (bankQuestions.some((item) => item.id === question.id) ? count : count + 1));
+    setPackLog(`${question.id} saved to ${draftVersion}. Publish review is now required.`);
+    addAuditEntry("Draft Saved", `${question.id} saved to ${draftVersion}`);
+  }
+
+  function createQuestionDraft() {
+    const nextId = `DRAFT-${String(bankQuestions.length + 1).padStart(3, "0")}`;
+    const newQuestion: EditableQuestion = {
+      id: nextId,
+      section: "A",
+      type: "single-choice",
+      prompt: "New assessment item draft. Replace this prompt with the teacher-facing question.",
+      score: 1,
+      competency: "ai-courseware",
+      difficulty: "foundation",
+      subject: "General",
+      domainLabel: "Draft Question",
+      options: [
+        { id: "A", label: "Option A" },
+        { id: "B", label: "Option B", isCorrect: true },
+        { id: "C", label: "Option C" },
+        { id: "D", label: "Option D" },
+      ],
+      explanation: "Add answer rationale before publishing.",
+      recommendedModule: "Admin Draft",
+      status: "draft",
+      version: "v1.1",
+      lastEdited: "Just now",
+    };
+
+    setBankQuestions((current) => [newQuestion, ...current]);
+    setSelectedQuestionId(nextId);
+    setQuestionCount((count) => count + 1);
+    setPackLog(`${nextId} created in ${draftVersion}.`);
+    addAuditEntry("Draft Created", `${nextId} created in ${draftVersion}`);
+  }
+
+  function stageImportedPack() {
+    const staged: EditableQuestion[] = sampleAssessmentPack.questions.slice(12, 18).map((question) => ({
+      ...question,
+      id: `${question.id}-IMP`,
+      status: "review",
+      version: "v1.1",
+      lastEdited: "Import preview",
+    }));
+
+    setBankQuestions((current) => [...staged, ...current]);
+    setSelectedQuestionId(staged[0]?.id ?? selectedQuestionId);
+    setQuestionCount((count) => count + staged.length);
+    setPackLog(`${staged.length} imported questions staged for admin review.`);
+    addAuditEntry("Import Staged", `${staged.length} questions staged for review`);
+  }
+
+  function publishDraftVersion() {
+    if (!publishChecklist.every((item) => item.passed)) {
+      setPackLog("Publish blocked: complete the review checklist before activating this version.");
+      addAuditEntry("Publish Blocked", "Review checklist failed; version was not activated");
+      return;
+    }
+
+    setBankQuestions((current) =>
+      current.map((question) =>
+        question.status === "draft" || question.status === "review"
+          ? { ...question, status: "published", version: "v1.1", lastEdited: "Published now" }
+          : question,
+      ),
+    );
+    setDraftVersion("v1.2 Draft");
+    publishPack("Sabah Pilot Certification");
+    setPackLog("Sabah Pilot Certification v1.1 published. A new v1.2 draft workspace is ready.");
+    addAuditEntry("Published", "Sabah Pilot Certification v1.1 activated");
+  }
+
+  function approveReviewItems() {
+    setBankQuestions((current) =>
+      current.map((question) =>
+        question.status === "review"
+          ? { ...question, status: "draft", lastEdited: "Review approved" }
+          : question,
+      ),
+    );
+    setPackLog("Review items approved and moved into the draft publish queue.");
+    addAuditEntry("Review Approved", `${reviewItems} review items moved into draft queue`);
+  }
 
   function publishPack(packName: string) {
     setPublishedPack(packName);
@@ -1678,16 +2728,15 @@ function AdminView({
       ),
     );
     setPackLog(`${packName} has been published as the active assessment pack.`);
+    addAuditEntry("Pack Published", `${packName} set as active assessment pack`);
   }
 
   function addQuestion() {
-    setQuestionCount((count) => count + 1);
-    setPackLog("New MCQ question added to the draft question bank.");
+    createQuestionDraft();
   }
 
   function importPack() {
-    setQuestionCount((count) => count + 24);
-    setPackLog("Excel import validated: 24 questions staged for review.");
+    stageImportedPack();
   }
 
   return (
@@ -1751,6 +2800,7 @@ function AdminView({
                     onClick={() => {
                       setPackStatuses((current) => ({ ...current, [pack.name]: "Archived" }));
                       setPackLog(`${pack.name} archived for audit history.`);
+                      addAuditEntry("Archived", `${pack.name} archived for audit history`);
                     }}
                     className={classNames(
                       "h-9 rounded-md border text-xs font-bold",
@@ -1810,15 +2860,30 @@ function AdminView({
         </button>
       </section>
 
+      <AdminQuestionBankWorkspace
+        questions={bankQuestions}
+        selectedQuestionId={selectedQuestionId}
+        draftVersion={draftVersion}
+        draftItems={draftItems}
+        reviewItems={reviewItems}
+        publishedItems={publishedItems}
+        publishChecklist={publishChecklist}
+        onSelectQuestion={setSelectedQuestionId}
+        onCreateQuestion={createQuestionDraft}
+        onSaveQuestion={saveQuestion}
+        onStageImport={stageImportedPack}
+        onApproveReview={approveReviewItems}
+        onPublishDraft={publishDraftVersion}
+      />
+
       <AssessmentBlueprint />
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <QuestionEditor onSave={addQuestion} />
+      <section className="grid gap-5 xl:grid-cols-[1fr]">
         <ImportPreview onConfirm={importPack} />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <AuditLog />
+        <AuditLog logs={auditEntries} />
         <NotificationsPanel />
       </section>
     </div>
@@ -1878,94 +2943,381 @@ function AssessmentBlueprint() {
   );
 }
 
-function QuestionEditor({ onSave }: { onSave: () => void }) {
-  const [saved, setSaved] = useState(false);
-  const [section, setSection] = useState("A");
-  const [questionType, setQuestionType] = useState("single-choice");
+function AdminQuestionBankWorkspace({
+  questions,
+  selectedQuestionId,
+  draftVersion,
+  draftItems,
+  reviewItems,
+  publishedItems,
+  publishChecklist,
+  onSelectQuestion,
+  onCreateQuestion,
+  onSaveQuestion,
+  onStageImport,
+  onApproveReview,
+  onPublishDraft,
+}: {
+  questions: EditableQuestion[];
+  selectedQuestionId: string;
+  draftVersion: string;
+  draftItems: number;
+  reviewItems: number;
+  publishedItems: number;
+  publishChecklist: Array<{ label: string; detail: string; passed: boolean }>;
+  onSelectQuestion: (id: string) => void;
+  onCreateQuestion: () => void;
+  onSaveQuestion: (question: EditableQuestion) => void;
+  onStageImport: () => void;
+  onApproveReview: () => void;
+  onPublishDraft: () => void;
+}) {
+  const [filter, setFilter] = useState<"All" | "A" | "B" | "C">("All");
+  const [savedNotice, setSavedNotice] = useState("");
+  const selectedQuestion = questions.find((question) => question.id === selectedQuestionId) ?? questions[0];
+  const filteredQuestions = filter === "All" ? questions : questions.filter((question) => question.section === filter);
+  const publishBlocked = !publishChecklist.every((item) => item.passed);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
-      <div className="flex items-center gap-3">
-        <FileText className="text-slate-500" size={24} />
+    <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <FileText className="text-slate-500" size={24} />
+          <div>
+            <p className="text-sm font-semibold text-slate-500">Admin Question Bank</p>
+            <h2 className="text-xl font-black">Editor & Publish Flow</h2>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <button onClick={onCreateQuestion} className="h-10 rounded-lg bg-slate-950 px-3 text-xs font-black text-white">
+            New Draft
+          </button>
+          <button onClick={onStageImport} className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-700">
+            Stage Import
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <AdminMetric icon={FileText} label="Draft Version" value={draftVersion} />
+        <AdminMetric icon={Pencil} label="Draft Items" value={String(draftItems)} />
+        <AdminMetric icon={ClipboardCheck} label="Needs Review" value={String(reviewItems)} />
+        <AdminMetric icon={ShieldCheck} label="Published Items" value={String(publishedItems)} />
+      </div>
+
+      <PublishReviewChecklist
+        items={publishChecklist}
+        reviewItems={reviewItems}
+        onApproveReview={onApproveReview}
+      />
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="grid grid-cols-4 gap-2">
+            {(["All", "A", "B", "C"] as const).map((item) => (
+              <button
+                key={item}
+                onClick={() => setFilter(item)}
+                className={classNames(
+                  "h-9 rounded-lg text-xs font-black",
+                  filter === item ? "bg-slate-950 text-white" : "bg-white text-slate-600",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 max-h-[460px] space-y-2 overflow-y-auto pr-1">
+            {filteredQuestions.map((question) => (
+              <button
+                key={question.id}
+                onClick={() => onSelectQuestion(question.id)}
+                className={classNames(
+                  "w-full rounded-xl border p-3 text-left",
+                  selectedQuestion?.id === question.id ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-950",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-wide opacity-70">
+                      {question.id} · Section {question.section}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-sm font-black">{question.prompt}</p>
+                  </div>
+                  <span
+                    className={classNames(
+                      "shrink-0 rounded-full px-2 py-1 text-[11px] font-black",
+                      question.status === "published"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : question.status === "review"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-cyan-100 text-cyan-700",
+                    )}
+                  >
+                    {question.status}
+                  </span>
+                </div>
+                <p className={classNames("mt-2 text-xs font-semibold", selectedQuestion?.id === question.id ? "text-slate-300" : "text-slate-500")}>
+                  {competencyLabels[question.competency]} · {question.score} marks · {question.lastEdited}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {selectedQuestion && (
+          <QuestionBankEditor
+            key={selectedQuestion.id}
+            selectedQuestion={selectedQuestion}
+            savedNotice={savedNotice}
+            publishBlocked={publishBlocked}
+            onSaveQuestion={(question) => {
+              onSaveQuestion(question);
+              setSavedNotice(`${question.id} saved to draft. It will not affect candidates until published.`);
+            }}
+            onPublishDraft={() => {
+              onPublishDraft();
+              setSavedNotice("Draft/review items published. Candidates will receive the active published version.");
+            }}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function PublishReviewChecklist({
+  items,
+  reviewItems,
+  onApproveReview,
+}: {
+  items: Array<{ label: string; detail: string; passed: boolean }>;
+  reviewItems: number;
+  onApproveReview: () => void;
+}) {
+  const passedCount = items.filter((item) => item.passed).length;
+  const ready = passedCount === items.length;
+
+  return (
+    <section className={classNames("mt-5 rounded-xl border p-4", ready ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50")}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-500">Question Bank Editor</p>
-          <h2 className="text-xl font-black">Create Assessment Item</h2>
+          <p className="text-sm font-black text-slate-950">Pre-Publish Review Checklist</p>
+          <p className="mt-1 text-xs font-semibold text-slate-600">
+            {passedCount}/{items.length} checks passed · {ready ? "ready to publish" : "review required"}
+          </p>
         </div>
+        <button
+          onClick={onApproveReview}
+          disabled={reviewItems === 0}
+          className={classNames(
+            "h-10 rounded-lg px-3 text-xs font-black",
+            reviewItems === 0 ? "cursor-not-allowed bg-white/70 text-slate-400" : "bg-slate-950 text-white",
+          )}
+        >
+          Approve Review Items
+        </button>
       </div>
-      <div className="mt-4 grid gap-3">
-        <div className="grid gap-3 sm:grid-cols-4">
-          <select
-            value={section}
-            onChange={(event) => setSection(event.target.value)}
-            className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold"
-          >
-            <option value="A">Section A · MCQ</option>
-            <option value="B">Section B · Simulation</option>
-            <option value="C">Section C · Mission</option>
-          </select>
-          <select
-            value={questionType}
-            onChange={(event) => setQuestionType(event.target.value)}
-            className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold"
-          >
-            <option value="single-choice">single-choice</option>
-            <option value="hotspot">hotspot</option>
-            <option value="step-order">step-order</option>
-            <option value="scenario-choice">scenario-choice</option>
-            <option value="rubric-task">rubric-task</option>
-          </select>
-          <select className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
-            <option>Quick Start & Whiteboard</option>
-            <option>Smart Ink</option>
-            <option>AI Preparation</option>
-            <option>Smart Quiz</option>
-            <option>Analysis AI</option>
-            <option>Hybrid Learning</option>
-          </select>
-          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold" defaultValue={section === "A" ? "1 mark" : section === "B" ? "2 marks" : "3 marks"} />
-        </div>
-        <textarea
-          className="min-h-24 rounded-lg border border-slate-200 p-3 text-sm leading-6"
-          defaultValue={
-            section === "B"
-              ? "Situasi: Anda ingin menyediakan PdP Sains Tahun 5 bertajuk Sistem Suria.\nTugasan: Susun langkah yang betul."
-              : "Matematik Tingkatan 2: Guru melukis fungsi y = x² menggunakan tulisan tangan. Apakah ciri EasiClass yang boleh membantu?"
-          }
-        />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Generate with AI > Enter topic > Review objectives" : "A. Clone Mode"} />
-          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Generate outline > Generate courseware" : "B. Smart Ink"} />
-          <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={section === "B" ? "Correct sequence = 2 marks" : "Answer: B"} />
-        </div>
-        <textarea
-          className="min-h-20 rounded-lg border border-slate-200 p-3 text-sm leading-6"
-          defaultValue={
-            section === "B"
-              ? "Rubrik: Urutan betul = 2 markah. Partial marks can be assigned per required step."
-              : "Rasional: Smart Ink boleh menukar formula tulisan tangan kepada graf fungsi."
-          }
-        />
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-start gap-2 rounded-lg bg-white p-3">
+            {item.passed ? <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={18} /> : <XCircle className="mt-0.5 shrink-0 text-amber-600" size={18} />}
+            <div>
+              <p className="text-sm font-black text-slate-950">{item.label}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.detail}</p>
+            </div>
+          </div>
+        ))}
       </div>
-      {saved && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">Question saved to draft pack.</p>}
-      <button
-        onClick={() => {
-          onSave();
-          setSaved(true);
-        }}
-        className="mt-4 h-11 w-full rounded-lg bg-slate-950 text-sm font-black text-white"
-      >
-        Save question
-      </button>
+    </section>
+  );
+}
+
+function QuestionBankEditor({
+  selectedQuestion,
+  savedNotice,
+  publishBlocked,
+  onSaveQuestion,
+  onPublishDraft,
+}: {
+  selectedQuestion: EditableQuestion;
+  savedNotice: string;
+  publishBlocked: boolean;
+  onSaveQuestion: (question: EditableQuestion) => void;
+  onPublishDraft: () => void;
+}) {
+  const initialOptionText =
+    selectedQuestion.section === "B"
+      ? (selectedQuestion.simulation?.stepOptions?.map((step) => step.label) ??
+          selectedQuestion.simulation?.guidedActions?.map((action) => action.instruction) ??
+          selectedQuestion.simulation?.requiredSteps ??
+          []).join("\n")
+      : (selectedQuestion.options ?? []).map((option) => `${option.id}. ${option.label}${option.isCorrect ? " *" : ""}`).join("\n");
+  const [editingId] = useState(selectedQuestion.id);
+  const [section, setSection] = useState<"A" | "B" | "C">(selectedQuestion.section);
+  const [questionType, setQuestionType] = useState<QuestionType>(selectedQuestion.type);
+  const [competency, setCompetency] = useState<CompetencyArea>(selectedQuestion.competency);
+  const [score, setScore] = useState(String(selectedQuestion.score));
+  const [subject, setSubject] = useState(selectedQuestion.subject ?? "General");
+  const [domainLabel, setDomainLabel] = useState(selectedQuestion.domainLabel ?? "Question Bank");
+  const [prompt, setPrompt] = useState(selectedQuestion.prompt);
+  const [answerKey, setAnswerKey] = useState(selectedQuestion.options?.find((option) => option.isCorrect)?.id ?? "B");
+  const [optionText, setOptionText] = useState(initialOptionText);
+  const [explanation, setExplanation] = useState(selectedQuestion.explanation ?? selectedQuestion.rubric?.join("\n") ?? "");
+
+  function buildEditedQuestion() {
+    const lines = optionText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const parsedOptions = lines.map((line, index) => {
+      const fallbackId = String.fromCharCode(65 + index);
+      const idMatch = line.match(/^([A-D])[\).\s-]+/);
+      const id = idMatch?.[1] ?? fallbackId;
+      const label = line.replace(/^([A-D])[\).\s-]+/, "").replace(/\s\*$/, "");
+
+      return {
+        id,
+        label,
+        isCorrect: id === answerKey ? true : undefined,
+      };
+    });
+    const simulationSteps = lines.map((line, index) => ({
+      id: `step-${index + 1}`,
+      label: line.replace(/^\d+[\).\s-]+/, ""),
+    }));
+
+    return {
+      ...selectedQuestion,
+      id: editingId,
+      section,
+      type: questionType,
+      prompt,
+      score: Number(score) || (section === "B" ? 2 : section === "C" ? 3 : 1),
+      competency,
+      subject,
+      domainLabel,
+      options: section === "B" ? undefined : parsedOptions,
+      simulation:
+        section === "B"
+          ? {
+              screen: "easiclass-simulator",
+              expectedAction: questionType === "step-order" ? "order-workflow" : "complete-guided-actions",
+              requiredSteps: simulationSteps.map((step) => step.label),
+              correctOrder: simulationSteps.map((step) => step.id),
+              stepOptions: simulationSteps,
+            }
+          : undefined,
+      rubric: section === "B" ? [`Partial scoring enabled: ${simulationSteps.length || 1} required actions.`] : undefined,
+      explanation,
+      recommendedModule: domainLabel,
+    } satisfies EditableQuestion;
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-3 md:p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-500">Selected Item</p>
+          <h3 className="text-lg font-black">{editingId}</h3>
+        </div>
+        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-black text-cyan-700">
+          Saved as draft first
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <select value={section} onChange={(event) => setSection(event.target.value as "A" | "B" | "C")} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
+          <option value="A">Section A</option>
+          <option value="B">Section B</option>
+          <option value="C">Section C</option>
+        </select>
+        <select value={questionType} onChange={(event) => setQuestionType(event.target.value as QuestionType)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
+          <option value="single-choice">single-choice</option>
+          <option value="scenario-choice">scenario-choice</option>
+          <option value="step-order">step-order</option>
+          <option value="hotspot">hotspot</option>
+          <option value="rubric-response">rubric-response</option>
+        </select>
+        <select value={competency} onChange={(event) => setCompetency(event.target.value as CompetencyArea)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
+          {Object.entries(competencyLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <input value={score} onChange={(event) => setScore(event.target.value)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold" />
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <input value={subject} onChange={(event) => setSubject(event.target.value)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold" placeholder="Subject" />
+        <input value={domainLabel} onChange={(event) => setDomainLabel(event.target.value)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold" placeholder="Domain / module" />
+      </div>
+
+      <textarea
+        value={prompt}
+        onChange={(event) => setPrompt(event.target.value)}
+        className="mt-3 min-h-28 w-full rounded-lg border border-slate-200 p-3 text-sm font-semibold leading-6"
+      />
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_160px]">
+        <textarea
+          value={optionText}
+          onChange={(event) => setOptionText(event.target.value)}
+          className="min-h-28 rounded-lg border border-slate-200 p-3 text-sm leading-6"
+          placeholder={section === "B" ? "One simulation step per line" : "A. Option one\nB. Correct option *"}
+        />
+        <label className="block">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Correct Answer</span>
+          <select value={answerKey} onChange={(event) => setAnswerKey(event.target.value)} disabled={section === "B"} className="mt-2 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-semibold disabled:bg-slate-100">
+            {["A", "B", "C", "D"].map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+            Section B uses step sequence or guided actions for scoring.
+          </p>
+        </label>
+      </div>
+
+      <textarea
+        value={explanation}
+        onChange={(event) => setExplanation(event.target.value)}
+        className="mt-3 min-h-20 w-full rounded-lg border border-slate-200 p-3 text-sm leading-6"
+        placeholder="Explanation, rubric, or admin review note"
+      />
+
+      {savedNotice && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{savedNotice}</p>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <button onClick={() => onSaveQuestion(buildEditedQuestion())} className="h-11 rounded-lg bg-slate-950 text-sm font-black text-white">
+          Save to Draft Version
+        </button>
+        <button
+          onClick={onPublishDraft}
+          disabled={publishBlocked}
+          className={classNames(
+            "h-11 rounded-lg text-sm font-black",
+            publishBlocked ? "cursor-not-allowed bg-slate-200 text-slate-500" : "bg-emerald-600 text-white",
+          )}
+        >
+          Publish Version
+        </button>
+      </div>
     </div>
   );
 }
 
 function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
   const [confirmed, setConfirmed] = useState(false);
+  const sectionACount = sampleAssessmentPack.questions.filter((question) => question.section === "A").length;
+  const sectionBCount = sampleAssessmentPack.questions.filter((question) => question.section === "B").length;
+  const sectionCCount = sampleAssessmentPack.questions.filter((question) => question.section === "C").length;
   const detectedRows = [
-    { section: "A", type: "MCQ", count: 80, status: "Ready" },
-    { section: "B", type: "Simulation rubric", count: 20, status: "Rubric mapped" },
-    { section: "C", type: "Mission scenario", count: 20, status: "Needs review" },
+    { section: "A", type: "MCQ", count: sectionACount, status: "Ready" },
+    { section: "B", type: "Simulation rubric", count: sectionBCount, status: "Rubric mapped" },
+    { section: "C", type: "Mission scenario", count: sectionCCount, status: "Needs review" },
   ];
 
   return (
@@ -1978,9 +3330,9 @@ function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <AdminMetric icon={CheckCircle2} label="Detected Items" value="120" />
-        <AdminMetric icon={ShieldCheck} label="Rubrics" value="20" />
-        <AdminMetric icon={XCircle} label="Needs Review" value="4" />
+        <AdminMetric icon={CheckCircle2} label="Detected Items" value={String(sectionACount + sectionBCount + sectionCCount)} />
+        <AdminMetric icon={ShieldCheck} label="Rubrics" value={String(sectionBCount)} />
+        <AdminMetric icon={XCircle} label="Needs Review" value={String(sectionCCount)} />
       </div>
       <div className="mt-4 space-y-2">
         {detectedRows.map((row) => (
@@ -1994,7 +3346,7 @@ function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
         ))}
       </div>
       <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-        4 mission scenarios need admin review for achievement level and competency mapping before publishing.
+        Mission scenarios need admin review for achievement level and competency mapping before publishing.
       </div>
       {confirmed && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">Import confirmed and staged for review.</p>}
       <button
@@ -2010,22 +3362,25 @@ function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-function AuditLog() {
-  const logs = [
-    "Super Admin published Sabah Pilot Certification v1.0",
-    "Rubric changed: Section B partial scoring enabled",
-    "Certificate SME-2026-000142 issued to Nur Aina Abdullah",
-    "Retake Pack archived for audit history",
-  ];
-
+function AuditLog({ logs }: { logs: AdminAuditEntry[] }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
-      <h2 className="text-xl font-black">Audit Log</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-black">Audit Log</h2>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">Live</span>
+      </div>
       <div className="mt-4 space-y-3">
         {logs.map((log) => (
-          <div key={log} className="flex gap-3 rounded-lg bg-slate-50 p-3">
+          <div key={log.id} className="flex gap-3 rounded-lg bg-slate-50 p-3">
             <ListChecks className="shrink-0 text-slate-500" size={20} />
-            <p className="text-sm font-semibold text-slate-700">{log}</p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-black text-slate-800">{log.action}</p>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-slate-500">{log.time}</span>
+              </div>
+              <p className="mt-1 text-sm font-semibold leading-5 text-slate-700">{log.detail}</p>
+              <p className="mt-1 text-xs font-bold text-slate-400">{log.actor}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -2289,7 +3644,7 @@ function JpnsAdminView() {
       <CompetencyPanel title="State Competency Gap" />
       <SabahMapVisual />
       <section className="grid gap-3 md:grid-cols-3">
-        <ActionTile icon={Map} title="Sabah Maturity Map" label="PPD ranking and school readiness layer" />
+        <ActionTile icon={MapIcon} title="Sabah Maturity Map" label="PPD ranking and school readiness layer" />
         <button onClick={() => setJpnsAction("State PLC circular generated for all low-maturity PPDs.")} className="text-left">
           <ActionTile icon={FileText} title="Generate Circular" label="state training instruction" />
         </button>
@@ -2569,7 +3924,7 @@ function SabahMapVisual() {
           <p className="text-sm font-semibold text-slate-500">Sabah Map Visual</p>
           <h2 className="text-xl font-black">PPD Certification Maturity</h2>
         </div>
-        <Map className="text-slate-500" size={24} />
+        <MapIcon className="text-slate-500" size={24} />
       </div>
       <div className="relative mt-4 h-72 overflow-hidden rounded-lg bg-slate-950">
         <div className="absolute inset-5 rounded-[45%] border border-cyan-300/40 bg-cyan-300/10" />
@@ -2727,13 +4082,32 @@ function ProgressRow({ label, meta, value }: { label: string; meta: string; valu
   );
 }
 
-function CompetencyPanel({ title }: { title: string }) {
+function CompetencyPanel({ title, results }: { title: string; results?: CompetencyResult[] }) {
+  const rows =
+    results && results.length > 0
+      ? results
+      : competencies.slice(2).map((item) => ({
+          area: "classroom-engagement" as CompetencyArea,
+          label: item.label,
+          earned: item.value,
+          total: 100,
+          percentage: item.value,
+          recommendation: "Use this area for targeted PLC planning and teacher coaching.",
+        }));
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
       <h2 className="text-xl font-bold">{title}</h2>
-      <div className="mt-4 space-y-4">
-        {competencies.slice(2).map((item) => (
-          <ProgressRow key={item.label} label={item.label} meta="competency score" value={item.value} />
+      <div className="mt-4 space-y-3">
+        {rows.map((item) => (
+          <div key={item.label} className="rounded-xl bg-slate-50 p-3">
+            <ProgressRow
+              label={item.label}
+              meta={`${item.earned}/${item.total} · ${getCompetencyStatus(item.percentage)}`}
+              value={item.percentage}
+            />
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{item.recommendation}</p>
+          </div>
         ))}
       </div>
     </section>
