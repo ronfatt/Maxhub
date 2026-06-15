@@ -596,7 +596,6 @@ function buildCompetencyReport({
 export default function Home() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [view, setView] = useState<View>("candidate");
-  const [selectedTool, setSelectedTool] = useState("AI Courseware");
   const [publishedPack, setPublishedPack] = useState("Sabah Pilot Certification");
   const [language, setLanguage] = useState<"EN" | "BM" | "中文">("EN");
   const activeProfile = role ? roleProfiles[role] : null;
@@ -710,7 +709,7 @@ export default function Home() {
               />
             )}
             {view === "exam" && (
-              <ExamView selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+              <ExamView />
             )}
             {view === "certificate" && (
               <CertificateView percentage={percentage} totalScore={totalScore} />
@@ -1293,20 +1292,7 @@ function CandidateView({
   );
 }
 
-function ExamView({
-  selectedTool,
-  setSelectedTool,
-}: {
-  selectedTool: string;
-  setSelectedTool: (value: string) => void;
-}) {
-  const tools = [
-    { label: "AI Courseware", tone: "bg-sky-100 text-sky-800 border-sky-200" },
-    { label: "AI Image", tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-    { label: "AI Activity", tone: "bg-amber-100 text-amber-900 border-amber-200" },
-    { label: "Smart Quiz", tone: "bg-rose-100 text-rose-800 border-rose-200" },
-    { label: "Role Talk", tone: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-  ];
+function ExamView() {
   const knowledgeQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "A");
   const simulationQuestionBank = sampleAssessmentPack.questions.filter((question) => question.section === "B");
   const missionQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "C");
@@ -1920,21 +1906,7 @@ function ExamView({
                 <p className="text-xs font-semibold">EasiClass Simulator</p>
               </div>
               <div className="grid min-h-[390px] bg-white p-4">
-                <div className="grid gap-3 sm:grid-cols-5">
-                  {tools.map((tool) => (
-                    <button
-                      key={tool.label}
-                      onClick={() => setSelectedTool(tool.label)}
-                      className={classNames(
-                        "min-h-12 rounded-lg border px-2 text-xs font-black transition md:text-sm",
-                        selectedTool === tool.label ? "border-sky-600 bg-sky-600 text-white shadow-md shadow-sky-200" : tool.tone,
-                      )}
-                    >
-                      {tool.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-4 grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
+                <div className="grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
                   <div className="space-y-2">
                     {simulationQuestionBank.map((question, index) => (
                       (() => {
@@ -1984,7 +1956,7 @@ function ExamView({
                       orderIds={stepOrders[activeSimulation.id] ?? []}
                       progress={guidedProgress[activeSimulation.id] ?? 0}
                       promptValue={simulationPrompts[activeSimulation.id] ?? ""}
-                      selectedTool={selectedTool}
+                      selectedTool={activeSimulation.recommendedModule ?? "EasiClass Task"}
                       onHotspotClick={(hotspotId) => handleHotspotClick(activeSimulation, hotspotId)}
                       onDragDrop={(zoneId, itemId) => handleDragDrop(activeSimulation, zoneId, itemId)}
                       onPromptChange={(value) => {
