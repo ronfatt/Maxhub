@@ -233,6 +233,113 @@ const sections = [
   },
 ];
 
+const sectionVisuals = {
+  A: {
+    name: "Knowledge",
+    band: "from-emerald-500 to-teal-500",
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    text: "text-emerald-800",
+    icon: "bg-emerald-100 text-emerald-700",
+    active: "bg-emerald-600 text-white",
+    bar: "bg-emerald-500",
+    ring: "ring-emerald-200",
+  },
+  B: {
+    name: "Simulation",
+    band: "from-sky-500 to-cyan-500",
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    text: "text-sky-800",
+    icon: "bg-sky-100 text-sky-700",
+    active: "bg-sky-600 text-white",
+    bar: "bg-sky-500",
+    ring: "ring-sky-200",
+  },
+  C: {
+    name: "Mission",
+    band: "from-amber-400 to-orange-500",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-900",
+    icon: "bg-amber-100 text-amber-700",
+    active: "bg-amber-500 text-slate-950",
+    bar: "bg-amber-500",
+    ring: "ring-amber-200",
+  },
+};
+
+const phaseVisuals: Record<ExamPhase, (typeof sectionVisuals)[keyof typeof sectionVisuals]> = {
+  briefing: sectionVisuals.B,
+  knowledge: sectionVisuals.A,
+  simulation: sectionVisuals.B,
+  mission: sectionVisuals.C,
+  review: sectionVisuals.A,
+  result: sectionVisuals.B,
+};
+
+const simulationTypeVisuals: Record<string, { label: string; chip: string; panel: string; bar: string }> = {
+  "step-order": {
+    label: "Arrange workflow",
+    chip: "bg-emerald-100 text-emerald-800",
+    panel: "border-emerald-200 bg-emerald-50",
+    bar: "bg-emerald-500",
+  },
+  hotspot: {
+    label: "Hotspot click",
+    chip: "bg-sky-100 text-sky-800",
+    panel: "border-sky-200 bg-sky-50",
+    bar: "bg-sky-500",
+  },
+  "drag-drop": {
+    label: "Drag-drop",
+    chip: "bg-amber-100 text-amber-900",
+    panel: "border-amber-200 bg-amber-50",
+    bar: "bg-amber-500",
+  },
+  "tool-selection": {
+    label: "Guided actions",
+    chip: "bg-rose-100 text-rose-800",
+    panel: "border-rose-200 bg-rose-50",
+    bar: "bg-rose-500",
+  },
+};
+
+const surfaceVisuals = [
+  {
+    border: "border-sky-200",
+    bg: "bg-sky-50",
+    icon: "bg-sky-100 text-sky-700",
+    text: "text-sky-800",
+    bar: "bg-sky-500",
+    active: "bg-sky-600 text-white",
+  },
+  {
+    border: "border-emerald-200",
+    bg: "bg-emerald-50",
+    icon: "bg-emerald-100 text-emerald-700",
+    text: "text-emerald-800",
+    bar: "bg-emerald-500",
+    active: "bg-emerald-600 text-white",
+  },
+  {
+    border: "border-amber-200",
+    bg: "bg-amber-50",
+    icon: "bg-amber-100 text-amber-700",
+    text: "text-amber-900",
+    bar: "bg-amber-500",
+    active: "bg-amber-500 text-slate-950",
+  },
+  {
+    border: "border-rose-200",
+    bg: "bg-rose-50",
+    icon: "bg-rose-100 text-rose-700",
+    text: "text-rose-800",
+    bar: "bg-rose-500",
+    active: "bg-rose-600 text-white",
+  },
+];
+
 const competencies = [
   { label: "Technical Operations", value: 92, color: "bg-emerald-500" },
   { label: "AI Courseware", value: 86, color: "bg-cyan-500" },
@@ -701,7 +808,9 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
   return (
     <main className="min-h-screen bg-[#f6f8fb] px-4 py-4 text-slate-950 md:px-8 md:py-10">
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col">
-        <header className="overflow-hidden rounded-[1.35rem] bg-[#071f54] p-5 text-white shadow-xl md:p-7">
+        <header className="overflow-hidden rounded-[1.35rem] bg-[#071f54] text-white shadow-xl">
+          <div className="h-2 bg-gradient-to-r from-sky-500 via-emerald-400 to-amber-400" />
+          <div className="p-5 md:p-7">
           <div className="flex items-center justify-between gap-4">
             <Brand inverse />
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-cyan-100">
@@ -714,9 +823,12 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
               <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
                 Official digital teaching certification.
               </h1>
-              <p className="mt-4 text-sm leading-6 text-slate-300 md:text-base">
-                Register, sit for the assessment, receive a verified certificate, and review performance by role.
-              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-sky-400/20 px-3 py-1 text-xs font-black text-sky-100">Register</span>
+                <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-black text-emerald-100">Assess</span>
+                <span className="rounded-full bg-amber-300/20 px-3 py-1 text-xs font-black text-amber-100">Certify</span>
+                <span className="rounded-full bg-rose-400/20 px-3 py-1 text-xs font-black text-rose-100">Report</span>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/10 p-3">
               {[
@@ -731,10 +843,13 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
               ))}
             </div>
           </div>
+          </div>
         </header>
 
         <section className="mt-5 grid flex-1 gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-          <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+          <div className="overflow-hidden rounded-[1.35rem] border border-sky-200 bg-white shadow-sm">
+            <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+            <div className="p-4 md:p-5">
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
               {(["login", "register", "forgot"] as const).map((item) => (
                 <button
@@ -796,22 +911,26 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
                 <p className="rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">{authNotice}</p>
               </div>
             )}
+            </div>
           </div>
 
-          <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+          <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-sm">
+            <div className="h-2 bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-400" />
+            <div className="p-4 md:p-5">
             <p className="text-sm font-semibold text-slate-500">Certification workspaces</p>
             <h2 className="mt-1 text-xl font-black">One platform, role-based access</h2>
             <div className="mt-4 space-y-3">
-              {roleOrder.map((roleKey) => {
+              {roleOrder.map((roleKey, index) => {
                 const profile = roleProfiles[roleKey];
+                const visual = surfaceVisuals[index % surfaceVisuals.length];
 
                 return (
                   <button
                     key={roleKey}
                     onClick={() => onSignIn(roleKey)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-white"
+                    className={classNames("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition hover:bg-white", visual.border, visual.bg)}
                   >
-                    <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#071f54] text-xs font-black text-white">
+                    <div className={classNames("grid size-11 shrink-0 place-items-center rounded-xl text-xs font-black", visual.icon)}>
                       {profile.initials}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -822,6 +941,7 @@ function RoleLogin({ onSignIn }: { onSignIn: (role: UserRole) => void }) {
                   </button>
                 );
               })}
+            </div>
             </div>
           </div>
         </section>
@@ -995,6 +1115,8 @@ function CandidateView({
   language: "EN" | "BM" | "中文";
   onNavigate: (view: View) => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-2xl bg-[#062a6f] p-5 text-white shadow-xl md:p-6">
@@ -1015,11 +1137,33 @@ function CandidateView({
             </div>
           </div>
         </div>
-        <div className="relative mt-5 rounded-2xl bg-white/10 p-4">
-          <p className="text-sm font-bold text-cyan-100">Certification Journey</p>
-          <p className="mt-1 text-sm leading-6 text-slate-200">
-            Continue the guided assessment, review your score, then download the verified certificate when eligible.
-          </p>
+        <div className="relative mt-5 rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Next step</p>
+              <p className="mt-1 text-lg font-black">Continue Section B Simulation</p>
+            </div>
+            <span className="rounded-full bg-emerald-300 px-3 py-1 text-xs font-black text-[#062a6f]">{percentage}%</span>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {[
+              ["A", "Done", "68/80"],
+              ["B", "Review", "32/40"],
+              ["C", "Done", "46/60"],
+            ].map(([id, status, score]) => {
+              const visual = sectionVisuals[id as keyof typeof sectionVisuals];
+
+              return (
+                <div key={id} className="rounded-xl bg-white p-3 text-slate-950">
+                  <span className={classNames("inline-flex size-8 items-center justify-center rounded-lg text-xs font-black", visual.icon)}>
+                    {id}
+                  </span>
+                  <p className="mt-2 text-xs font-black text-slate-500">{status}</p>
+                  <p className="text-sm font-black">{score}</p>
+                </div>
+              );
+            })}
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               onClick={() => onNavigate("exam")}
@@ -1042,26 +1186,49 @@ function CandidateView({
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
-        <button onClick={() => onNavigate("exam")} className="text-left">
-          <ActionTile icon={ClipboardCheck} title="Start Assessment" label="briefing, MCQ, simulation, mission" />
+      <section className="grid gap-3 sm:grid-cols-3">
+        <button
+          onClick={() => onNavigate("exam")}
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl bg-sky-600 p-4 text-left text-white shadow-md shadow-sky-200"
+        >
+          <span>
+            <span className="block text-sm font-black">Continue</span>
+            <span className="mt-1 block text-xs font-bold text-sky-100">Exam wizard</span>
+          </span>
+          <ArrowRight size={22} />
         </button>
-        <button onClick={() => onNavigate("certificate")} className="text-left">
-          <ActionTile icon={FileBadge} title="My Certificate" label={`${achievementLabel} · ${percentage}%`} />
+        <button
+          onClick={() => onNavigate("certificate")}
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left text-emerald-900"
+        >
+          <span>
+            <span className="block text-sm font-black">Certificate</span>
+            <span className="mt-1 block text-xs font-bold text-emerald-700">Ready</span>
+          </span>
+          <FileBadge size={22} />
         </button>
-        <button onClick={() => onNavigate("retake")} className="text-left">
-          <ActionTile icon={RefreshCcw} title="Improve / Retake" label="weak areas and learning modules" />
+        <button
+          onClick={() => setShowDetails((value) => !value)}
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left text-slate-900"
+        >
+          <span>
+            <span className="block text-sm font-black">{showDetails ? "Hide details" : "View details"}</span>
+            <span className="mt-1 block text-xs font-bold text-slate-500">Scores & support</span>
+          </span>
+          <ChevronRight className={showDetails ? "rotate-90 transition" : "transition"} size={22} />
         </button>
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
         {sections.map((section) => (
-          <div key={section.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={section.id} className={classNames("overflow-hidden rounded-2xl border bg-white shadow-sm", sectionVisuals[section.id as keyof typeof sectionVisuals].border)}>
+            <div className={classNames("h-2 bg-gradient-to-r", sectionVisuals[section.id as keyof typeof sectionVisuals].band)} />
+            <div className="p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className={classNames("grid size-11 place-items-center rounded-xl", section.tone)}>
+              <div className={classNames("grid size-11 place-items-center rounded-xl", sectionVisuals[section.id as keyof typeof sectionVisuals].icon)}>
                 <section.icon size={20} />
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">
+              <span className={classNames("rounded-full px-2.5 py-1 text-xs font-black", sectionVisuals[section.id as keyof typeof sectionVisuals].bg, sectionVisuals[section.id as keyof typeof sectionVisuals].text)}>
                 {section.status}
               </span>
             </div>
@@ -1072,13 +1239,16 @@ function CandidateView({
               <p className="text-sm font-medium text-slate-500">/{section.total}</p>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-cyan-500" style={{ width: `${Math.round((section.score / section.total) * 100)}%` }} />
+              <div className={classNames("h-full rounded-full", sectionVisuals[section.id as keyof typeof sectionVisuals].bar)} style={{ width: `${Math.round((section.score / section.total) * 100)}%` }} />
+            </div>
             </div>
           </div>
         ))}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400" />
+        <div className="p-4 md:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-500">Achievement</p>
@@ -1095,8 +1265,10 @@ function CandidateView({
           <StatusPill icon={School} label={candidate.ppd} />
           <StatusPill icon={GraduationCap} label={candidate.role} />
         </div>
+        </div>
       </section>
 
+      {showDetails && (
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold">Competency Report</h3>
@@ -1116,6 +1288,7 @@ function CandidateView({
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }
@@ -1127,7 +1300,13 @@ function ExamView({
   selectedTool: string;
   setSelectedTool: (value: string) => void;
 }) {
-  const tools = ["AI Courseware", "AI Image", "AI Activity", "Smart Quiz", "Role Talk"];
+  const tools = [
+    { label: "AI Courseware", tone: "bg-sky-100 text-sky-800 border-sky-200" },
+    { label: "AI Image", tone: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    { label: "AI Activity", tone: "bg-amber-100 text-amber-900 border-amber-200" },
+    { label: "Smart Quiz", tone: "bg-rose-100 text-rose-800 border-rose-200" },
+    { label: "Role Talk", tone: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+  ];
   const knowledgeQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "A");
   const simulationQuestionBank = sampleAssessmentPack.questions.filter((question) => question.section === "B");
   const missionQuestions = sampleAssessmentPack.questions.filter((question) => question.section === "C");
@@ -1147,6 +1326,7 @@ function ExamView({
   const [flagged, setFlaggedState] = useState<Record<string, boolean>>(savedAttemptSeed?.flagged ?? {});
   const [timerMinutes, setTimerMinutesState] = useState(savedAttemptSeed?.timerMinutes ?? 90);
   const [rulesAccepted, setRulesAccepted] = useState(false);
+  const [showBriefingDetails, setShowBriefingDetails] = useState(false);
   const [simulationFeedback, setSimulationFeedback] = useState("Complete each task. The simulator records partial marks automatically.");
   const [activeSimulationId, setActiveSimulationIdState] = useState(savedAttemptSeed?.activeSimulationId ?? simulationQuestionBank[0]?.id ?? "");
   const [simulationCompleted, setSimulationCompletedState] = useState<Record<string, boolean>>(savedAttemptSeed?.simulationCompleted ?? {});
@@ -1202,6 +1382,7 @@ function ExamView({
     if (reviewFilter === "unanswered") return !answers[question.id];
     return true;
   });
+  const currentVisual = phaseVisuals[phase];
 
   function persistAttempt(overrides: Partial<SavedExamAttempt> = {}) {
     const now = new Date().toISOString();
@@ -1440,15 +1621,21 @@ function ExamView({
 
   return (
     <div className={classNames("space-y-5", phase === "knowledge" || phase === "mission" ? "pb-20 sm:pb-0" : null)}>
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <section className={classNames("overflow-hidden rounded-2xl border bg-white shadow-sm", currentVisual.border)}>
+        <div className={classNames("h-2 bg-gradient-to-r", currentVisual.band)} />
+        <div className="p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-500">Certification Assessment</p>
+            <p className={classNames("text-sm font-black", currentVisual.text)}>Certification Assessment</p>
             <h2 className="mt-1 text-2xl font-black tracking-tight">Sabah MAXHUB Educator</h2>
-            <p className="mt-1 text-sm text-slate-600">Guided mobile exam · 180 marks · certificate at 50%</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">180 marks</span>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">50% certificate</span>
+              <span className={classNames("rounded-full px-2.5 py-1 text-xs font-black", currentVisual.bg, currentVisual.text)}>{currentVisual.name}</span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-[#062a6f] px-3 py-2 text-right text-white">
-            <p className="text-xs font-semibold text-slate-300">Timer</p>
+          <div className={classNames("rounded-2xl px-3 py-2 text-right text-white bg-gradient-to-br", currentVisual.band)}>
+            <p className="text-xs font-semibold text-white/80">Timer</p>
             <p className="text-lg font-black">{timerMinutes}:00</p>
           </div>
         </div>
@@ -1466,15 +1653,16 @@ function ExamView({
           </div>
           <button
             onClick={resetAttempt}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-slate-700"
+            className={classNames("h-9 rounded-lg border bg-white px-3 text-xs font-black", currentVisual.border, currentVisual.text)}
           >
             Start fresh
           </button>
         </div>
+        </div>
       </section>
 
       {phase !== "briefing" && phase !== "result" && (
-        <section className="sticky top-0 z-30 -mx-4 border-y border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur md:hidden">
+        <section className={classNames("sticky top-0 z-30 -mx-4 border-y bg-white/95 px-4 py-3 shadow-sm backdrop-blur md:hidden", currentVisual.border)}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-slate-400">Section Progress</p>
@@ -1491,7 +1679,7 @@ function ExamView({
             {(phase === "knowledge" || phase === "mission") && (
               <button
                 onClick={() => setNavigatorOpen(true)}
-                className="h-9 rounded-lg bg-slate-950 px-3 text-xs font-black text-white"
+                className={classNames("h-9 rounded-lg px-3 text-xs font-black", currentVisual.active)}
               >
                 Questions
               </button>
@@ -1499,7 +1687,7 @@ function ExamView({
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-cyan-600"
+              className={classNames("h-full rounded-full", currentVisual.bar)}
               style={{
                 width: `${Math.round((answeredCount / Math.max(totalDemoItems, 1)) * 100)}%`,
               }}
@@ -1538,7 +1726,7 @@ function ExamView({
                   className={classNames(
                     "grid size-11 place-items-center rounded-lg text-sm font-black",
                     (phase === "knowledge" ? questionIndex : missionIndex) === index
-                      ? "bg-slate-950 text-white"
+                      ? currentVisual.active
                       : flagged[question.id]
                         ? "bg-amber-100 text-amber-700"
                         : answers[question.id]
@@ -1560,19 +1748,50 @@ function ExamView({
       )}
 
       {phase === "briefing" && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+          <div className="bg-gradient-to-r from-sky-500 to-cyan-500 p-4 text-white md:p-5">
           <h3 className="text-xl font-black">Pre-Assessment Briefing</h3>
-          <div className="mt-4 grid gap-3">
-            <BriefingRow icon={BookOpenCheck} title="Section A · Knowledge Assessment" detail="80 MCQ based on classroom situations and EasiClass tools." score="80 marks" />
-            <BriefingRow icon={TabletSmartphone} title="Section B · Digital Performance Simulation" detail="20 operation tasks with hotspot, step order, upload and generation actions." score="40 marks" />
-            <BriefingRow icon={ClipboardList} title="Section C · Mission-Based Scenarios" detail="20 professional judgement missions for AI, pedagogy, analytics and intervention." score="60 marks" />
+          <p className="mt-1 text-sm font-semibold text-white/85">Follow the steps. The system saves your progress automatically.</p>
+          </div>
+          <div className="p-4 md:p-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { id: "A", title: "Answer MCQ", detail: "Knowledge", score: "80" },
+              { id: "B", title: "Do Simulation", detail: "EasiClass tasks", score: "40" },
+              { id: "C", title: "Choose Mission", detail: "Teaching cases", score: "60" },
+            ].map((item) => {
+              const visual = sectionVisuals[item.id as keyof typeof sectionVisuals];
+
+              return (
+                <div key={item.id} className={classNames("rounded-xl border p-4", visual.border, visual.bg)}>
+                  <span className={classNames("grid size-10 place-items-center rounded-lg text-sm font-black", visual.active)}>{item.id}</span>
+                  <h4 className="mt-3 font-black text-slate-950">{item.title}</h4>
+                  <p className="mt-1 text-xs font-bold text-slate-500">{item.detail}</p>
+                  <p className={classNames("mt-3 text-lg font-black", visual.text)}>{item.score} marks</p>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-5 grid gap-2 sm:grid-cols-3">
             <StatusPill icon={FileBadge} label="50%+ certificate" />
             <StatusPill icon={RefreshCcw} label="Retake opens after 7 days" />
             <StatusPill icon={Gauge} label="Competency report generated" />
           </div>
-          <label className="mt-5 flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+          <button
+            onClick={() => setShowBriefingDetails((value) => !value)}
+            className="mt-4 flex h-10 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+          >
+            {showBriefingDetails ? "Hide full rules" : "View full rules"}
+            <ChevronRight className={showBriefingDetails ? "rotate-90 transition" : "transition"} size={18} />
+          </button>
+          {showBriefingDetails && (
+            <div className="mt-3 grid gap-3">
+              <BriefingRow icon={BookOpenCheck} title="Section A · Knowledge Assessment" detail="80 MCQ based on classroom situations and EasiClass tools." score="80 marks" />
+              <BriefingRow icon={TabletSmartphone} title="Section B · Digital Performance Simulation" detail="20 operation tasks with hotspot, step order, upload and generation actions." score="40 marks" />
+              <BriefingRow icon={ClipboardList} title="Section C · Mission-Based Scenarios" detail="20 professional judgement missions for AI, pedagogy, analytics and intervention." score="60 marks" />
+            </div>
+          )}
+          <label className="mt-5 flex items-start gap-3 rounded-lg bg-sky-50 p-3 text-sm font-semibold text-sky-900">
             <input
               type="checkbox"
               checked={rulesAccepted}
@@ -1590,11 +1809,12 @@ function ExamView({
             disabled={!rulesAccepted}
             className={classNames(
               "mt-5 h-12 w-full rounded-lg text-sm font-black",
-              rulesAccepted ? "bg-slate-950 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
+              rulesAccepted ? "bg-sky-600 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
             )}
           >
             Start exam
           </button>
+          </div>
         </section>
       )}
 
@@ -1613,7 +1833,7 @@ function ExamView({
                   className={classNames(
                     "grid size-10 place-items-center rounded-lg text-sm font-black",
                     questionIndex === index
-                      ? "bg-slate-950 text-white"
+                      ? sectionVisuals.A.active
                       : flagged[question.id]
                         ? "bg-amber-100 text-amber-700"
                       : answers[question.id]
@@ -1634,6 +1854,7 @@ function ExamView({
             options={currentQuestion.options ?? []}
             selectedAnswer={answers[currentQuestion.id] ?? null}
             onSelect={(answer) => saveAnswer(currentQuestion.id, answer)}
+            visual={sectionVisuals.A}
           />
           <div className="hidden grid-cols-2 gap-3 sm:grid xl:col-span-2">
             <button
@@ -1655,7 +1876,7 @@ function ExamView({
                 if (questionIndex === knowledgeQuestions.length - 1) goToPhase("simulation");
                 else updateQuestionIndex(questionIndex + 1);
               }}
-              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 text-sm font-bold text-white"
             >
               Next
               <ArrowRight size={17} />
@@ -1689,8 +1910,8 @@ function ExamView({
               <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">{sectionBScore}/40 marks</span>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-              <div className="flex items-center justify-between bg-[#062a6f] px-3 py-2 text-white">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50">
+              <div className="flex items-center justify-between bg-gradient-to-r from-[#062a6f] via-sky-700 to-cyan-600 px-3 py-2 text-white">
                 <div className="flex gap-1.5">
                   <span className="size-2.5 rounded-full bg-rose-400" />
                   <span className="size-2.5 rounded-full bg-amber-300" />
@@ -1702,30 +1923,34 @@ function ExamView({
                 <div className="grid gap-3 sm:grid-cols-5">
                   {tools.map((tool) => (
                     <button
-                      key={tool}
-                      onClick={() => setSelectedTool(tool)}
+                      key={tool.label}
+                      onClick={() => setSelectedTool(tool.label)}
                       className={classNames(
-                        "min-h-12 rounded-lg px-2 text-xs font-bold transition md:text-sm",
-                        selectedTool === tool ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-600",
+                        "min-h-12 rounded-lg border px-2 text-xs font-black transition md:text-sm",
+                        selectedTool === tool.label ? "border-sky-600 bg-sky-600 text-white shadow-md shadow-sky-200" : tool.tone,
                       )}
                     >
-                      {tool}
+                      {tool.label}
                     </button>
                   ))}
                 </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
                   <div className="space-y-2">
                     {simulationQuestionBank.map((question, index) => (
+                      (() => {
+                        const typeVisual = simulationTypeVisuals[question.type] ?? simulationTypeVisuals["tool-selection"];
+
+                        return (
                       <button
                         key={question.id}
                         onClick={() => selectSimulation(question.id)}
                         className={classNames(
                           "flex w-full items-center gap-3 rounded-xl border p-3 text-left",
                           activeSimulation?.id === question.id
-                            ? "border-slate-950 bg-slate-950 text-white"
+                            ? "border-sky-600 bg-sky-600 text-white shadow-md shadow-sky-100"
                             : simulationCompleted[question.id]
                               ? "border-emerald-200 bg-emerald-50 text-slate-950"
-                              : "border-slate-200 bg-slate-50 text-slate-950",
+                              : typeVisual.panel,
                         )}
                       >
                         <span className={classNames(
@@ -1739,19 +1964,13 @@ function ExamView({
                           <span className={classNames("mt-0.5 block text-xs font-semibold", activeSimulation?.id === question.id ? "text-slate-300" : "text-slate-500")}>
                             {simulationCompleted[question.id]
                               ? `Completed · ${simulationScores[question.id] ?? question.score}/${question.score}`
-                              : `${simulationScores[question.id] ?? 0}/${question.score} · ${
-                                  question.type === "step-order"
-                                    ? "Arrange workflow"
-                                    : question.type === "hotspot"
-                                      ? "Hotspot click"
-                                      : question.type === "drag-drop"
-                                        ? "Drag-drop"
-                                        : "Guided actions"
-                                }`}
+                              : `${simulationScores[question.id] ?? 0}/${question.score} · ${typeVisual.label}`}
                           </span>
                         </span>
                         {simulationCompleted[question.id] && <CheckCircle2 className="shrink-0 text-emerald-500" size={18} />}
                       </button>
+                        );
+                      })()
                     ))}
                   </div>
 
@@ -1779,12 +1998,15 @@ function ExamView({
                     />
                   )}
                 </div>
-                <p className="mt-4 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{simulationFeedback}</p>
-                <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm font-bold text-sky-800 ring-1 ring-sky-100">{simulationFeedback}</p>
+                <div className="mt-3 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-100">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">Attempt log</p>
                   <div className="mt-2 space-y-1">
                     {(simulationAttemptLog.length > 0 ? simulationAttemptLog : ["No simulation attempts recorded yet."]).map((entry) => (
-                      <p key={entry} className="text-xs font-semibold leading-5 text-slate-600">{entry}</p>
+                      <p key={entry} className="flex gap-2 text-xs font-semibold leading-5 text-slate-600">
+                        <span className="mt-1.5 size-2 shrink-0 rounded-full bg-sky-500" />
+                        <span>{entry}</span>
+                      </p>
                     ))}
                   </div>
                 </div>
@@ -1801,7 +2023,7 @@ function ExamView({
               disabled={completedSimulation !== simulationQuestionBank.length}
               className={classNames(
                 "flex h-12 w-full items-center justify-center rounded-lg text-sm font-black transition",
-                completedSimulation === simulationQuestionBank.length ? "bg-slate-950 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
+                completedSimulation === simulationQuestionBank.length ? "bg-sky-600 text-white" : "cursor-not-allowed bg-slate-200 text-slate-500",
               )}
             >
               {completedSimulation === simulationQuestionBank.length ? "Continue to Section C" : "Complete Section B tasks"}
@@ -1825,7 +2047,7 @@ function ExamView({
                   className={classNames(
                     "grid size-10 place-items-center rounded-lg text-sm font-black",
                     missionIndex === index
-                      ? "bg-slate-950 text-white"
+                      ? sectionVisuals.C.active
                       : answers[question.id]
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-slate-100 text-slate-500",
@@ -1843,6 +2065,7 @@ function ExamView({
             meta={`${currentMission.subject ?? "Professional judgement"} · ${currentMission.score} marks`}
             options={currentMission.options ?? []}
             selectedAnswer={answers[currentMission.id] ?? null}
+            visual={sectionVisuals.C}
             onSelect={(answer) => saveAnswer(currentMission.id, answer)}
           />
           <div className="hidden grid-cols-2 gap-3 sm:grid xl:col-span-2">
@@ -1858,7 +2081,7 @@ function ExamView({
                 if (missionIndex === missionQuestions.length - 1) goToPhase("review");
                 else updateMissionIndex(missionIndex + 1);
               }}
-              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 text-sm font-bold text-white"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-amber-500 text-sm font-bold text-slate-950"
             >
               {missionIndex === missionQuestions.length - 1 ? "Review" : "Next"}
               <ArrowRight size={17} />
@@ -1901,7 +2124,7 @@ function ExamView({
                   onClick={() => setReviewFilter(value)}
                   className={classNames(
                     "h-10 rounded-lg text-xs font-black",
-                    reviewFilter === value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600",
+                    reviewFilter === value ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600",
                   )}
                 >
                   {label}
@@ -2087,20 +2310,13 @@ function SimulationWorkbench({
   const guidedActions = question.simulation?.guidedActions ?? [];
   const currentAction = guidedActions[Math.min(progress, Math.max(guidedActions.length - 1, 0))];
   const needsPrompt = currentAction?.action.includes("TYPE");
+  const typeVisual = simulationTypeVisuals[question.type] ?? simulationTypeVisuals["tool-selection"];
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className={classNames("rounded-2xl border bg-white p-4 shadow-sm", typeVisual.panel)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-            {question.type === "step-order"
-              ? "Step ordering"
-              : question.type === "drag-drop"
-                ? "Drag and drop"
-                : question.type === "hotspot"
-                  ? "Hotspot click"
-                  : "Guided simulator"}
-          </p>
+          <p className={classNames("inline-flex rounded-full px-2.5 py-1 text-xs font-black", typeVisual.chip)}>{typeVisual.label}</p>
           <h4 className="mt-1 text-base font-black text-slate-950">{question.recommendedModule}</h4>
         </div>
         <span className={classNames(
@@ -2113,7 +2329,7 @@ function SimulationWorkbench({
       <p className="mt-3 text-sm leading-6 text-slate-600">{question.prompt}</p>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-cyan-600"
+          className={classNames("h-full rounded-full", typeVisual.bar)}
           style={{ width: `${Math.min(100, Math.round((score / Math.max(question.score, 1)) * 100))}%` }}
         />
       </div>
@@ -2121,8 +2337,8 @@ function SimulationWorkbench({
       {question.type === "step-order" ? (
         <div className="mt-4 space-y-2">
           {orderedSteps.map((step, index) => (
-            <div key={step.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-xs font-black text-slate-600">
+            <div key={step.id} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-white p-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-100 text-xs font-black text-emerald-800">
                 {index + 1}
               </span>
               <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-slate-700">{step.label}</p>
@@ -2147,7 +2363,7 @@ function SimulationWorkbench({
             disabled={completed}
             className={classNames(
               "mt-2 h-11 w-full rounded-lg text-sm font-black",
-              completed ? "bg-emerald-100 text-emerald-700" : "bg-slate-950 text-white",
+              completed ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600 text-white",
             )}
           >
             {completed ? "Sequence accepted" : "Check sequence"}
@@ -2155,8 +2371,8 @@ function SimulationWorkbench({
         </div>
       ) : question.type === "hotspot" ? (
         <div className="mt-4 space-y-3">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 text-white">
-            <div className="flex items-center justify-between bg-[#062a6f] px-3 py-2">
+          <div className="overflow-hidden rounded-xl border border-sky-200 bg-slate-950 text-white">
+            <div className="flex items-center justify-between bg-gradient-to-r from-sky-700 to-cyan-600 px-3 py-2">
               <p className="text-xs font-black">EasiClass Media Panel</p>
               <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-bold">Click the correct hotspot</span>
             </div>
@@ -2193,8 +2409,8 @@ function SimulationWorkbench({
       ) : question.type === "drag-drop" ? (
         <div className="mt-4 space-y-3">
           <div className="grid gap-3 lg:grid-cols-[0.85fr_1.15fr]">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-500">Drag resources</p>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-800">Drag resources</p>
               <div className="mt-3 space-y-2">
                 {(question.simulation?.dragItems ?? []).map((item) => (
                   <div
@@ -2211,8 +2427,8 @@ function SimulationWorkbench({
                 ))}
               </div>
             </div>
-            <div className="rounded-xl bg-slate-950 p-3 text-white">
-              <p className="text-xs font-black uppercase tracking-wide text-cyan-200">Lesson flow drop zones</p>
+            <div className="rounded-xl bg-gradient-to-br from-slate-950 to-sky-950 p-3 text-white">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-200">Lesson flow drop zones</p>
               <div className="mt-3 grid gap-2">
                 {(question.simulation?.dropZones ?? []).map((zone) => (
                   <div
@@ -2246,7 +2462,7 @@ function SimulationWorkbench({
         </div>
       ) : (
         <div className="mt-4 space-y-3">
-          <div className="rounded-xl bg-slate-950 p-4 text-white">
+          <div className="rounded-xl bg-gradient-to-br from-slate-950 to-rose-950 p-4 text-white">
             <p className="text-xs font-bold uppercase tracking-wide text-cyan-200">Current tool</p>
             <p className="mt-1 text-lg font-black">{selectedTool}</p>
             <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -2339,7 +2555,9 @@ function ResultView({
         <AdminMetric icon={TabletSmartphone} label="Section B" value={`${sectionBScore}/40`} />
         <AdminMetric icon={ClipboardList} label="Section C" value={`${sectionCScore}/60`} />
       </div>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-amber-400" />
+        <div className="p-4 md:p-5">
         <h3 className="text-xl font-black">Next Action</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {passed
@@ -2348,6 +2566,7 @@ function ResultView({
               : "Certificate is ready. Download the PDF or copy the public verification link for school submission."
             : `Retake opens on ${candidate.nextRetake}. Complete the recommended learning modules first.`}
         </p>
+        </div>
       </section>
       <CompetencyPanel title="Question-level Competency Report" results={competencyReport} />
       <div className="grid gap-3 md:grid-cols-3">
@@ -2373,6 +2592,7 @@ function QuestionCard({
   options,
   selectedAnswer,
   onSelect,
+  visual = sectionVisuals.B,
 }: {
   section: string;
   title: string;
@@ -2381,12 +2601,15 @@ function QuestionCard({
   options: Array<{ id: string; label: string; isCorrect?: boolean }>;
   selectedAnswer: string | null;
   onSelect: (answer: string) => void;
+  visual?: (typeof sectionVisuals)[keyof typeof sectionVisuals];
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="text-sm font-semibold text-slate-500">{section}</p>
+    <div className={classNames("overflow-hidden rounded-2xl border bg-white shadow-sm", visual.border)}>
+      <div className={classNames("h-2 bg-gradient-to-r", visual.band)} />
+      <div className="p-4">
+      <p className={classNames("text-sm font-black", visual.text)}>{section}</p>
       <h3 className="mt-1 text-lg font-bold">{title}</h3>
-      {meta && <p className="mt-2 rounded-lg bg-cyan-50 p-2 text-xs font-bold text-cyan-800">{meta}</p>}
+      {meta && <p className={classNames("mt-2 rounded-lg p-2 text-xs font-bold", visual.bg, visual.text)}>{meta}</p>}
       <p className="mt-3 text-sm leading-6 text-slate-700">{prompt}</p>
       <div className="mt-4 space-y-2">
         {options.map((option) => {
@@ -2399,14 +2622,14 @@ function QuestionCard({
               className={classNames(
                 "flex min-h-12 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
                 selected
-                  ? "border-slate-950 bg-slate-950 text-white"
+                  ? classNames("border-transparent shadow-md", visual.active)
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
               )}
             >
               <span
                 className={classNames(
                   "grid size-7 shrink-0 place-items-center rounded-md text-xs font-black",
-                  selected ? "bg-white text-slate-950" : "bg-slate-100 text-slate-600",
+                  selected ? "bg-white text-slate-950" : classNames(visual.bg, visual.text),
                 )}
               >
                 {option.id}
@@ -2415,6 +2638,7 @@ function QuestionCard({
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -2430,12 +2654,25 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
 
   return (
     <div className="space-y-5">
-      <section className="rounded-lg bg-emerald-50 p-4">
-        <p className="text-sm font-bold text-emerald-900">Certificate status</p>
-        <p className="mt-1 text-sm leading-6 text-emerald-800">{certificateNotice}</p>
+      <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-400" />
+        <div className="grid gap-3 p-4 md:grid-cols-[1fr_auto] md:p-5 md:items-center">
+          <div>
+            <p className="text-sm font-black text-emerald-800">Certificate status</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Ready for official verification</h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{certificateNotice}</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 md:min-w-72">
+            <CertificateMeta label="Score" value={`${totalScore}/180`} />
+            <CertificateMeta label="Result" value={`${percentage}%`} />
+            <CertificateMeta label="Template" value={isPassedTemplate ? "Passed" : "Participant"} />
+          </div>
+        </div>
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-5 md:p-7">
-        <div className="mx-auto max-w-3xl overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm md:p-8">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-7">
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div className="h-2 bg-gradient-to-r from-blue-700 via-sky-500 to-red-500" />
+          <div className="p-5 md:p-8">
           <div className="flex items-start justify-between gap-4 text-xs font-semibold text-slate-400">
             <span>Issued: 2026-06-18</span>
             <span>Certificate ID: JPNS26-0001</span>
@@ -2486,10 +2723,13 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
           </div>
           <p className="mt-3 text-right text-xs font-bold text-slate-500">QR verifies /verify/SME-2026-000142</p>
           <div className="mt-7 h-2 rounded-full bg-gradient-to-r from-blue-700 via-sky-500 to-red-500" />
+          </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+        <div className="p-4 md:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-500">Certificate templates</p>
@@ -2508,6 +2748,7 @@ function CertificateView({ percentage, totalScore }: { percentage: number; total
             src="/brand/certificate-certified-template.jpg"
             active={isPassedTemplate}
           />
+        </div>
         </div>
       </section>
 
@@ -2570,12 +2811,15 @@ function RetakeView() {
         <AdminMetric icon={RefreshCcw} label="Attempts Left" value={String(candidate.retakesLeft)} />
         <AdminMetric icon={ShieldCheck} label="Current Status" value="Passed" />
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-amber-400 to-rose-500" />
+        <div className="p-4 md:p-5">
         <h2 className="text-xl font-black">Recommended Learning Modules</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <ActionTile icon={BookOpenCheck} title="Smart Quiz Review" label="20 minutes" />
           <ActionTile icon={TabletSmartphone} title="Hybrid Learning Lab" label="35 minutes" />
           <ActionTile icon={Gauge} title="Lesson Analytics" label="25 minutes" />
+        </div>
         </div>
       </section>
     </div>
@@ -2749,13 +2993,15 @@ function AdminView({
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+        <div className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+          <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+          <div className="p-4 md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-slate-500">Question Bank</p>
               <h2 className="text-xl font-bold">Assessment Packs</h2>
             </div>
-            <button className="grid size-10 place-items-center rounded-lg bg-slate-950 text-white" aria-label="Upload pack">
+            <button className="grid size-10 place-items-center rounded-lg bg-sky-600 text-white" aria-label="Upload pack">
               <Upload size={20} />
             </button>
           </div>
@@ -2813,9 +3059,12 @@ function AdminView({
               </div>
             ))}
           </div>
+          </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+        <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+          <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400" />
+          <div className="p-4 md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-slate-500">JPNS Dashboard</p>
@@ -2841,6 +3090,7 @@ function AdminView({
             <p className="mt-1 text-sm leading-6 text-amber-800">
               Prioritize Lesson Analytics and Hybrid Learning clinics for schools below 70% pass rate.
             </p>
+          </div>
           </div>
         </div>
       </section>
@@ -2916,7 +3166,9 @@ function AssessmentBlueprint() {
   ];
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-400" />
+      <div className="p-4 md:p-5">
       <div className="flex items-center gap-3">
         <ClipboardList className="text-slate-500" size={24} />
         <div>
@@ -2925,19 +3177,24 @@ function AssessmentBlueprint() {
         </div>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        {blueprint.map((item) => (
-          <div key={item.section} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        {blueprint.map((item) => {
+          const visual = sectionVisuals[item.section as keyof typeof sectionVisuals];
+
+          return (
+          <div key={item.section} className={classNames("rounded-xl border p-4", visual.border, visual.bg)}>
             <div className="flex items-center justify-between gap-3">
-              <span className="grid size-9 place-items-center rounded-lg bg-[#062a6f] text-sm font-black text-white">
+              <span className={classNames("grid size-9 place-items-center rounded-lg text-sm font-black", visual.active)}>
                 {item.section}
               </span>
               <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-600">{item.marks}</span>
             </div>
             <h3 className="mt-4 font-black">{item.title}</h3>
-            <p className="mt-1 text-sm font-bold text-cyan-700">{item.format}</p>
+            <p className={classNames("mt-1 text-sm font-bold", visual.text)}>{item.format}</p>
             <p className="mt-3 text-sm leading-6 text-slate-600">{item.coverage}</p>
           </div>
-        ))}
+          );
+        })}
+      </div>
       </div>
     </section>
   );
@@ -2979,7 +3236,9 @@ function AdminQuestionBankWorkspace({
   const publishBlocked = !publishChecklist.every((item) => item.passed);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+    <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-sky-500 to-emerald-400" />
+      <div className="p-4 md:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <FileText className="text-slate-500" size={24} />
@@ -2989,7 +3248,7 @@ function AdminQuestionBankWorkspace({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
-          <button onClick={onCreateQuestion} className="h-10 rounded-lg bg-slate-950 px-3 text-xs font-black text-white">
+          <button onClick={onCreateQuestion} className="h-10 rounded-lg bg-sky-600 px-3 text-xs font-black text-white">
             New Draft
           </button>
           <button onClick={onStageImport} className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-700">
@@ -3012,7 +3271,7 @@ function AdminQuestionBankWorkspace({
       />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
-        <div className="rounded-xl bg-slate-50 p-3">
+        <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
           <div className="grid grid-cols-4 gap-2">
             {(["All", "A", "B", "C"] as const).map((item) => (
               <button
@@ -3020,7 +3279,7 @@ function AdminQuestionBankWorkspace({
                 onClick={() => setFilter(item)}
                 className={classNames(
                   "h-9 rounded-lg text-xs font-black",
-                  filter === item ? "bg-slate-950 text-white" : "bg-white text-slate-600",
+                  filter === item ? "bg-sky-600 text-white" : "bg-white text-slate-600",
                 )}
               >
                 {item}
@@ -3034,7 +3293,7 @@ function AdminQuestionBankWorkspace({
                 onClick={() => onSelectQuestion(question.id)}
                 className={classNames(
                   "w-full rounded-xl border p-3 text-left",
-                  selectedQuestion?.id === question.id ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-950",
+                  selectedQuestion?.id === question.id ? "border-sky-600 bg-sky-600 text-white" : "border-slate-200 bg-white text-slate-950",
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -3081,6 +3340,7 @@ function AdminQuestionBankWorkspace({
             }}
           />
         )}
+      </div>
       </div>
     </section>
   );
@@ -3321,9 +3581,13 @@ function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
   ];
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+    <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-amber-400 to-orange-500" />
+      <div className="p-4 md:p-5">
       <div className="flex items-center gap-3">
-        <Upload className="text-slate-500" size={24} />
+        <div className="grid size-11 place-items-center rounded-xl bg-amber-100 text-amber-800">
+          <Upload size={24} />
+        </div>
         <div>
           <p className="text-sm font-semibold text-slate-500">PDF / Excel Import Preview</p>
           <h2 className="text-xl font-black">Validate Instrument Pack</h2>
@@ -3354,25 +3618,28 @@ function ImportPreview({ onConfirm }: { onConfirm: () => void }) {
           onConfirm();
           setConfirmed(true);
         }}
-        className="mt-4 h-11 w-full rounded-lg bg-slate-950 text-sm font-black text-white"
+        className="mt-4 h-11 w-full rounded-lg bg-amber-500 text-sm font-black text-slate-950"
       >
         Confirm import
       </button>
+      </div>
     </div>
   );
 }
 
 function AuditLog({ logs }: { logs: AdminAuditEntry[] }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+    <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400" />
+      <div className="p-4 md:p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-black">Audit Log</h2>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">Live</span>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Live</span>
       </div>
       <div className="mt-4 space-y-3">
         {logs.map((log) => (
-          <div key={log.id} className="flex gap-3 rounded-lg bg-slate-50 p-3">
-            <ListChecks className="shrink-0 text-slate-500" size={20} />
+          <div key={log.id} className="flex gap-3 rounded-lg bg-emerald-50 p-3">
+            <ListChecks className="shrink-0 text-emerald-600" size={20} />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-black text-slate-800">{log.action}</p>
@@ -3384,6 +3651,7 @@ function AuditLog({ logs }: { logs: AdminAuditEntry[] }) {
           </div>
         ))}
       </div>
+      </div>
     </div>
   );
 }
@@ -3392,22 +3660,27 @@ function NotificationsPanel() {
   const [notice, setNotice] = useState("No recent notifications.");
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+    <div className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+      <div className="p-4 md:p-5">
       <div className="flex items-center gap-3">
-        <Bell className="text-slate-500" size={22} />
+        <div className="grid size-10 place-items-center rounded-xl bg-sky-100 text-sky-700">
+          <Bell size={22} />
+        </div>
         <h2 className="text-xl font-black">Notifications</h2>
       </div>
       <p className="mt-2 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{notice}</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <button onClick={() => setNotice("Exam completion email sent to candidate.")} className="rounded-lg bg-slate-950 p-3 text-sm font-bold text-white">
+        <button onClick={() => setNotice("Exam completion email sent to candidate.")} className="rounded-lg bg-sky-600 p-3 text-sm font-bold text-white">
           Exam email
         </button>
-        <button onClick={() => setNotice("Certificate issued notification sent to school admin.")} className="rounded-lg bg-slate-950 p-3 text-sm font-bold text-white">
+        <button onClick={() => setNotice("Certificate issued notification sent to school admin.")} className="rounded-lg bg-emerald-600 p-3 text-sm font-bold text-white">
           Certificate email
         </button>
-        <button onClick={() => setNotice("Retake reminder scheduled for 19 Jun 2026.")} className="rounded-lg bg-slate-950 p-3 text-sm font-bold text-white">
+        <button onClick={() => setNotice("Retake reminder scheduled for 19 Jun 2026.")} className="rounded-lg bg-amber-500 p-3 text-sm font-bold text-slate-950">
           Retake reminder
         </button>
+      </div>
       </div>
     </div>
   );
@@ -3439,7 +3712,9 @@ function SchoolAdminView() {
         <AdminMetric icon={FileBadge} label="Certified" value="38" />
         <AdminMetric icon={RefreshCcw} label="Retakes" value="6" />
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400" />
+        <div className="p-4 md:p-5">
         <h2 className="text-xl font-bold">Teacher Progress</h2>
         <div className="mt-4 space-y-3">
           {teacherRows.map(([name, status, detail]) => (
@@ -3448,7 +3723,7 @@ function SchoolAdminView() {
               onClick={() => setSelectedTeacher(name)}
               className={classNames(
                 "flex w-full items-center justify-between gap-3 rounded-lg p-3 text-left",
-                selectedTeacher === name ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-950",
+                selectedTeacher === name ? "bg-emerald-600 text-white" : "bg-emerald-50 text-slate-950",
               )}
             >
               <div>
@@ -3459,15 +3734,18 @@ function SchoolAdminView() {
             </button>
           ))}
         </div>
+        </div>
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+        <div className="p-4 md:p-5">
         <p className="text-sm font-semibold text-slate-500">Selected Teacher</p>
         <h2 className="mt-1 text-xl font-bold">{teacherDetail[0]}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{teacherDetail[3]}</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <button
             onClick={() => setSchoolAction(`Intervention note generated for ${teacherDetail[0]}.`)}
-            className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white"
+            className="h-10 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white"
           >
             Intervention note
           </button>
@@ -3485,15 +3763,19 @@ function SchoolAdminView() {
           </button>
         </div>
         <p className="mt-3 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{schoolAction}</p>
+        </div>
       </section>
       <CompetencyPanel title="School Weak Areas" />
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-amber-400" />
+        <div className="p-4 md:p-5">
         <h2 className="text-xl font-bold">School Certification Workflow</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <StatusStep title="Identify" detail="Find weak competencies" done />
           <StatusStep title="Intervene" detail="Assign PLC module" done={schoolAction.includes("PLC")} />
           <StatusStep title="Remind" detail="Notify teacher" done={schoolAction.includes("Reminder")} />
           <StatusStep title="Report" detail="Export principal report" done={false} />
+        </div>
         </div>
       </section>
       <PrincipalReport />
@@ -3529,7 +3811,9 @@ function PpdAdminView() {
         <AdminMetric icon={ShieldCheck} label="Pass Rate" value="82%" />
         <AdminMetric icon={CalendarClock} label="Pending" value="57" />
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-amber-400" />
+        <div className="p-4 md:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-xl font-bold">School Comparison</h2>
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
@@ -3539,7 +3823,7 @@ function PpdAdminView() {
                 onClick={() => setDistrictMode(mode)}
                 className={classNames(
                   "h-9 rounded-md px-2 text-xs font-bold",
-                  districtMode === mode ? "bg-white text-slate-950 shadow-sm" : "text-slate-500",
+                  districtMode === mode ? "bg-sky-600 text-white shadow-sm" : "text-slate-500",
                 )}
               >
                 {mode}
@@ -3554,15 +3838,18 @@ function PpdAdminView() {
               onClick={() => setSelectedSchool(school.label)}
               className={classNames(
                 "w-full rounded-lg p-3 text-left",
-                selectedSchool === school.label ? "bg-slate-950 text-white" : "bg-white",
+                selectedSchool === school.label ? "bg-sky-600 text-white" : "bg-sky-50",
               )}
             >
               <ProgressRow label={school.label} meta={`${school.teachers} teachers`} value={school.pass} />
             </button>
           ))}
         </div>
+        </div>
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-amber-400 to-orange-500" />
+        <div className="p-4 md:p-5">
         <p className="text-sm font-semibold text-slate-500">Selected School</p>
         <h2 className="mt-1 text-xl font-bold">{selectedSchool}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -3571,7 +3858,7 @@ function PpdAdminView() {
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <button
             onClick={() => setPpdAction(`District PLC scheduled for ${selectedSchool}.`)}
-            className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-bold text-white"
+            className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-bold text-slate-950"
           >
             Schedule PLC
           </button>
@@ -3589,6 +3876,7 @@ function PpdAdminView() {
           </button>
         </div>
         <p className="mt-3 rounded-lg bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{ppdAction}</p>
+        </div>
       </section>
       <RecommendationCard text={`${districtMode}: Prioritize Smart Quiz and Lesson Analytics clinics for schools below 75% pass rate.`} />
       <TrainingCalendar />
@@ -3617,7 +3905,9 @@ function JpnsAdminView() {
         <AdminMetric icon={ShieldCheck} label="Pass Rate" value="76%" />
         <AdminMetric icon={FileBadge} label="Issued" value="938" />
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-5">
+      <section className="overflow-hidden rounded-2xl border border-sky-200 bg-white shadow-sm">
+        <div className="h-2 bg-gradient-to-r from-sky-500 to-cyan-400" />
+        <div className="p-4 md:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-xl font-bold">PPD Performance</h2>
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
@@ -3627,7 +3917,7 @@ function JpnsAdminView() {
                 onClick={() => setReportScope(scope)}
                 className={classNames(
                   "h-9 rounded-md px-2 text-xs font-bold",
-                  reportScope === scope ? "bg-white text-slate-950 shadow-sm" : "text-slate-500",
+                  reportScope === scope ? "bg-sky-600 text-white shadow-sm" : "text-slate-500",
                 )}
               >
                 {scope}
@@ -3639,6 +3929,7 @@ function JpnsAdminView() {
           {districtStats.map((district) => (
             <ProgressRow key={district.label} label={district.label} meta={`${district.teachers} teachers`} value={district.pass} />
           ))}
+        </div>
         </div>
       </section>
       <CompetencyPanel title="State Competency Gap" />
@@ -3793,17 +4084,33 @@ function RoleHero({
   title: string;
   description: string;
 }) {
+  const visual = eyebrow.includes("School")
+    ? surfaceVisuals[1]
+    : eyebrow.includes("PPD")
+      ? surfaceVisuals[2]
+      : eyebrow.includes("JPNS")
+        ? surfaceVisuals[0]
+        : surfaceVisuals[3];
+
   return (
-    <section className="rounded-2xl bg-[#071f54] p-5 text-white shadow-lg md:p-6">
+    <section className="overflow-hidden rounded-2xl bg-[#071f54] text-white shadow-lg">
+      <div className={classNames("h-2 bg-gradient-to-r", eyebrow.includes("School") ? "from-emerald-500 to-teal-400" : eyebrow.includes("PPD") ? "from-amber-400 to-orange-500" : eyebrow.includes("JPNS") ? "from-sky-500 to-cyan-400" : "from-rose-500 to-amber-400")} />
+      <div className="p-5 md:p-6">
       <div className="flex items-start gap-4">
-        <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-cyan-200">
+        <div className={classNames("grid size-12 shrink-0 place-items-center rounded-2xl", visual.icon)}>
           <Icon size={25} />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-cyan-200">{eyebrow}</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-black text-white">Role-based</span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-black text-white">Mobile ready</span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-black text-white">Exportable</span>
+          </div>
         </div>
+      </div>
       </div>
     </section>
   );
@@ -4069,14 +4376,16 @@ function ReportFilters({ scope }: { scope: string }) {
 }
 
 function ProgressRow({ label, meta, value }: { label: string; meta: string; value: number }) {
+  const visual = value >= 80 ? surfaceVisuals[1] : value >= 70 ? surfaceVisuals[0] : surfaceVisuals[2];
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3 text-sm">
         <span className="font-semibold">{label}</span>
-        <span className="text-slate-500">{meta} · {value}%</span>
+        <span className={classNames("rounded-full px-2 py-0.5 text-xs font-black", visual.bg, visual.text)}>{meta} · {value}%</span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-cyan-600" style={{ width: `${value}%` }} />
+        <div className={classNames("h-full rounded-full", visual.bar)} style={{ width: `${value}%` }} />
       </div>
     </div>
   );
@@ -4194,23 +4503,46 @@ function CertificateMeta({ label, value }: { label: string; value: string }) {
 }
 
 function ActionTile({ icon: Icon, title, label }: { icon: typeof QrCode; title: string; label: string }) {
+  const visual = title.includes("Retake") || title.includes("Archive") || title.includes("Revoke")
+    ? surfaceVisuals[3]
+    : title.includes("Certificate") || title.includes("PDF") || title.includes("Verify")
+      ? surfaceVisuals[1]
+      : title.includes("Import") || title.includes("Replace") || title.includes("PLC")
+        ? surfaceVisuals[2]
+        : surfaceVisuals[0];
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <Icon className="text-slate-600" size={24} />
+    <div className={classNames("min-h-32 rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md", visual.border, visual.bg)}>
+      <div className={classNames("grid size-11 place-items-center rounded-xl", visual.icon)}>
+        <Icon size={23} />
+      </div>
       <h3 className="mt-3 font-bold">{title}</h3>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-600">{label}</p>
     </div>
   );
 }
 
 function AdminMetric({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
+  const visual = label.includes("Pass") || label.includes("Certified") || label.includes("Issued") || label.includes("Published") || label.includes("API")
+    ? surfaceVisuals[1]
+    : label.includes("Retake") || label.includes("Pending") || label.includes("Review") || label.includes("Queue")
+      ? surfaceVisuals[2]
+      : label.includes("PPD") || label.includes("District") || label.includes("School")
+        ? surfaceVisuals[0]
+        : surfaceVisuals[3];
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className={classNames("overflow-hidden rounded-xl border bg-white p-4 shadow-sm", visual.border)}>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-slate-500">{label}</p>
-        <Icon className="text-slate-400" size={20} />
+        <span className={classNames("grid size-9 place-items-center rounded-lg", visual.icon)}>
+          <Icon size={19} />
+        </span>
       </div>
       <p className="mt-3 text-2xl font-black tracking-tight">{value}</p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className={classNames("h-full w-2/3 rounded-full", visual.bar)} />
+      </div>
     </div>
   );
 }
